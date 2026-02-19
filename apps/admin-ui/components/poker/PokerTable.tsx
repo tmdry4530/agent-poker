@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useApiData } from "@/lib/hooks";
 import { TableFelt } from "./TableFelt";
 import { Seat, type SeatData } from "./Seat";
@@ -27,23 +27,27 @@ interface LiveState {
   lastAction?: { agentId: string; action: string; amount?: number };
 }
 
-// 6-seat positions (percentages): top, top-right, bottom-right, bottom, bottom-left, top-left
+// 8-seat positions (percentages): top, top-right, right, bottom-right, bottom, bottom-left, left, top-left
 const seatPositions = [
-  { top: "8%", left: "50%" },   // top center
-  { top: "25%", left: "88%" },  // top right
-  { top: "70%", left: "88%" },  // bottom right
-  { top: "88%", left: "50%" },  // bottom center
-  { top: "70%", left: "12%" },  // bottom left
-  { top: "25%", left: "12%" },  // top left
+  { top: "8%", left: "50%" },    // 0: top center
+  { top: "20%", left: "82%" },   // 1: top right
+  { top: "50%", left: "92%" },   // 2: right
+  { top: "80%", left: "82%" },   // 3: bottom right
+  { top: "92%", left: "50%" },   // 4: bottom center
+  { top: "80%", left: "18%" },   // 5: bottom left
+  { top: "50%", left: "8%" },    // 6: left
+  { top: "20%", left: "18%" },   // 7: top left
 ];
 
 const betPositions = [
-  { top: "25%", left: "50%" },
-  { top: "35%", left: "72%" },
-  { top: "60%", left: "72%" },
-  { top: "72%", left: "50%" },
-  { top: "60%", left: "28%" },
-  { top: "35%", left: "28%" },
+  { top: "22%", left: "50%" },   // 0
+  { top: "30%", left: "68%" },   // 1
+  { top: "50%", left: "76%" },   // 2
+  { top: "70%", left: "68%" },   // 3
+  { top: "78%", left: "50%" },   // 4
+  { top: "70%", left: "32%" },   // 5
+  { top: "50%", left: "24%" },   // 6
+  { top: "30%", left: "32%" },   // 7
 ];
 
 async function fetchTableState(tableId: string): Promise<{ liveState: LiveState | null; seats: any[] }> {
@@ -67,41 +71,44 @@ export function PokerTable({ tableId }: { tableId: string }) {
   const liveState = data?.liveState ?? null;
   const rawSeats = data?.seats ?? [];
 
-  // Build 6 seat slots (HU uses 2, rest are empty)
-  const seats: SeatData[] = Array.from({ length: 6 }, (_, i): SeatData => {
-    const raw = rawSeats[i];
-    if (!raw || !raw.agentId) {
+  // Build 8 seat slots (dynamically from table config)
+  const maxSeats = 8;
+  const seats: SeatData[] = useMemo(() => {
+    return Array.from({ length: maxSeats }, (_, i): SeatData => {
+      const raw = rawSeats[i];
+      if (!raw || !raw.agentId) {
+        return {
+          seatIndex: i,
+          agentId: null,
+          chips: 0,
+          holeCards: [],
+          currentBet: 0,
+          hasFolded: false,
+          isAllIn: false,
+          isActive: false,
+          isWinner: false,
+          status: "empty",
+        };
+      }
+
+      // Find player in live state
+      const player = liveState?.players.find((p) => p.id === raw.agentId);
       return {
         seatIndex: i,
-        agentId: null,
-        chips: 0,
-        holeCards: [],
-        currentBet: 0,
-        hasFolded: false,
-        isAllIn: false,
-        isActive: false,
-        isWinner: false,
-        status: "empty",
+        agentId: raw.agentId,
+        chips: player?.chips ?? raw.chips ?? 0,
+        holeCards: player?.holeCards ?? [],
+        currentBet: player?.currentBet ?? 0,
+        hasFolded: player?.hasFolded ?? false,
+        isAllIn: player?.isAllIn ?? false,
+        isActive: liveState
+          ? liveState.activePlayerIndex === i && !liveState.isHandComplete
+          : false,
+        isWinner: liveState?.winners.includes(raw.agentId) ?? false,
+        status: raw.status ?? "seated",
       };
-    }
-
-    // Find player in live state
-    const player = liveState?.players.find((p) => p.id === raw.agentId);
-    return {
-      seatIndex: i,
-      agentId: raw.agentId,
-      chips: player?.chips ?? raw.chips ?? 0,
-      holeCards: player?.holeCards ?? [],
-      currentBet: player?.currentBet ?? 0,
-      hasFolded: player?.hasFolded ?? false,
-      isAllIn: player?.isAllIn ?? false,
-      isActive: liveState
-        ? liveState.players[liveState.activePlayerIndex]?.id === raw.agentId && !liveState.isHandComplete
-        : false,
-      isWinner: liveState?.winners.includes(raw.agentId) ?? false,
-      status: raw.status ?? "seated",
-    };
-  });
+    });
+  }, [maxSeats, rawSeats, liveState]);
 
   // Extract last action from live state events (if we had them)
   const lastAction = liveState?.lastAction ?? null;

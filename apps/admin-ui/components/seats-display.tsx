@@ -8,16 +8,11 @@ interface SeatsDisplayProps {
 }
 
 export function SeatsDisplay({ seats }: SeatsDisplayProps) {
-  const allSeats: SeatInfo[] =
-    seats.length > 0
-      ? seats
-      : [
-          { seatIndex: 0, agentId: null, chips: 0, status: "empty" },
-          { seatIndex: 1, agentId: null, chips: 0, status: "empty" },
-        ];
+  const allSeats: SeatInfo[] = seats.length > 0 ? seats : [];
+  const gridCols = allSeats.length <= 2 ? "grid-cols-2" : allSeats.length <= 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-4";
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className={cn("grid gap-4", gridCols)}>
       {allSeats.map((seat) => {
         const isEmpty = !seat.agentId || seat.status === "left";
         return (

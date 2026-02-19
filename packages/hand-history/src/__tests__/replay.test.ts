@@ -145,6 +145,139 @@ describe('HandHistory - Replay', () => {
   });
 });
 
+describe('HandHistory - Multiway Replay', () => {
+  function makeMulti(handId: string, rngSeed: number, numPlayers: number) {
+    const rng = createSeededRng(rngSeed);
+    const players: PlayerSetup[] = [];
+    for (let i = 0; i < numPlayers; i++) {
+      players.push({ id: `p${i}`, seatIndex: i, chips: 100 });
+    }
+    return createInitialState(handId, players, 0, rng);
+  }
+
+  it('should replay a 3-player hand to showdown', () => {
+    const rngSeed = 33333;
+    const { state: state0, events: events0 } = makeMulti('multi-3', rngSeed, 3);
+
+    let currentState = state0;
+    const allEvents: GameEvent[] = [...events0];
+    let moves = 0;
+
+    while (!currentState.isHandComplete && moves < 200) {
+      const activeId = getActiveId(currentState);
+      let result;
+      try {
+        result = applyAction(currentState, activeId, { type: 'CHECK' as any });
+      } catch {
+        result = applyAction(currentState, activeId, { type: 'CALL' as any });
+      }
+      currentState = result.state;
+      allEvents.push(...result.events);
+      moves++;
+    }
+
+    const replayResult = replayHand(allEvents, rngSeed);
+    expect(replayResult.valid).toBe(true);
+    expect(replayResult.errors).toEqual([]);
+    expect(replayResult.finalState.isHandComplete).toBe(true);
+    expect(replayResult.finalState.winners).toBeDefined();
+  });
+
+  it('should replay a 6-player hand to showdown', () => {
+    const rngSeed = 66666;
+    const { state: state0, events: events0 } = makeMulti('multi-6', rngSeed, 6);
+
+    let currentState = state0;
+    const allEvents: GameEvent[] = [...events0];
+    let moves = 0;
+
+    while (!currentState.isHandComplete && moves < 200) {
+      const activeId = getActiveId(currentState);
+      let result;
+      try {
+        result = applyAction(currentState, activeId, { type: 'CHECK' as any });
+      } catch {
+        result = applyAction(currentState, activeId, { type: 'CALL' as any });
+      }
+      currentState = result.state;
+      allEvents.push(...result.events);
+      moves++;
+    }
+
+    const replayResult = replayHand(allEvents, rngSeed);
+    expect(replayResult.valid).toBe(true);
+    expect(replayResult.errors).toEqual([]);
+    expect(replayResult.finalState.isHandComplete).toBe(true);
+  });
+
+  it('should replay a 4-player hand with folds', () => {
+    const rngSeed = 44444;
+    const { state: state0, events: events0 } = makeMulti('multi-4-fold', rngSeed, 4);
+
+    let currentState = state0;
+    const allEvents: GameEvent[] = [...events0];
+    let foldCount = 0;
+    let moves = 0;
+
+    while (!currentState.isHandComplete && moves < 200) {
+      const activeId = getActiveId(currentState);
+      let result;
+      // First two players fold, rest play normally
+      if (foldCount < 2) {
+        result = applyAction(currentState, activeId, { type: 'FOLD' as any });
+        foldCount++;
+      } else {
+        try {
+          result = applyAction(currentState, activeId, { type: 'CHECK' as any });
+        } catch {
+          result = applyAction(currentState, activeId, { type: 'CALL' as any });
+        }
+      }
+      currentState = result.state;
+      allEvents.push(...result.events);
+      moves++;
+    }
+
+    const replayResult = replayHand(allEvents, rngSeed);
+    expect(replayResult.valid).toBe(true);
+    expect(replayResult.errors).toEqual([]);
+    expect(replayResult.finalState.isHandComplete).toBe(true);
+  });
+
+  it('should replay with non-contiguous seats', () => {
+    const rngSeed = 77777;
+    const rng = createSeededRng(rngSeed);
+    const players: PlayerSetup[] = [
+      { id: 'a', seatIndex: 1, chips: 100 },
+      { id: 'b', seatIndex: 3, chips: 100 },
+      { id: 'c', seatIndex: 7, chips: 100 },
+    ];
+    const { state: state0, events: events0 } = createInitialState('nc-replay', players, 1, rng);
+
+    let currentState = state0;
+    const allEvents: GameEvent[] = [...events0];
+    let moves = 0;
+
+    while (!currentState.isHandComplete && moves < 200) {
+      const activeId = getActiveId(currentState);
+      let result;
+      try {
+        result = applyAction(currentState, activeId, { type: 'CHECK' as any });
+      } catch {
+        result = applyAction(currentState, activeId, { type: 'CALL' as any });
+      }
+      currentState = result.state;
+      allEvents.push(...result.events);
+      moves++;
+    }
+
+    const replayResult = replayHand(allEvents, rngSeed);
+    expect(replayResult.valid).toBe(true);
+    expect(replayResult.errors).toEqual([]);
+    expect(replayResult.finalState.isHandComplete).toBe(true);
+  });
+});
+
 describe('MemoryHandHistoryStore', () => {
   it('should store and retrieve events', async () => {
     const store = new MemoryHandHistoryStore();

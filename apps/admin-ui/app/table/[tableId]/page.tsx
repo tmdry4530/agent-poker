@@ -1,16 +1,26 @@
 "use client";
 
-import { use, useCallback } from "react";
+import { use, useCallback, Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, List } from "lucide-react";
-import { PokerTable } from "@/components/poker/PokerTable";
-import { HandHistoryList } from "@/components/hand-history-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useApiData } from "@/lib/hooks";
 import { getTable } from "@/lib/api";
 import { TableStatusBadge } from "@/components/table-status-badge";
+
+const PokerTable = dynamic(
+  () => import("@/components/poker/PokerTable").then(m => ({ default: m.PokerTable })),
+  { loading: () => <Skeleton className="h-[500px] w-full" /> }
+);
+
+const HandHistoryList = dynamic(
+  () => import("@/components/hand-history-list").then(m => ({ default: m.HandHistoryList })),
+  { loading: () => <Skeleton className="h-[200px] w-full" /> }
+);
 
 export default function PokerTablePage({ params }: { params: Promise<{ tableId: string }> }) {
   const { tableId } = use(params);
@@ -52,7 +62,9 @@ export default function PokerTablePage({ params }: { params: Promise<{ tableId: 
         </TabsList>
 
         <TabsContent value="table" className="mt-4">
-          <PokerTable tableId={tableId} />
+          <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
+            <PokerTable tableId={tableId} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="hands" className="mt-4">
@@ -61,7 +73,9 @@ export default function PokerTablePage({ params }: { params: Promise<{ tableId: 
               <CardTitle>Hand History</CardTitle>
             </CardHeader>
             <CardContent>
-              <HandHistoryList tableId={tableId} />
+              <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                <HandHistoryList tableId={tableId} />
+              </Suspense>
             </CardContent>
           </Card>
         </TabsContent>

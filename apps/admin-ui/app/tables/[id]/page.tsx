@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, Suspense } from "react";
 import { use } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, Hash, Clock, Layers, Spade } from "lucide-react";
 import { useApiData } from "@/lib/hooks";
 import { getTable } from "@/lib/api";
 import { TableStatusBadge } from "@/components/table-status-badge";
 import { SeatsDisplay } from "@/components/seats-display";
-import { LiveHandView } from "@/components/live-hand-view";
-import { HandHistoryList } from "@/components/hand-history-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatTimestamp } from "@/lib/utils";
+
+const LiveHandView = dynamic(
+  () => import("@/components/live-hand-view").then(m => ({ default: m.LiveHandView })),
+  { loading: () => <Skeleton className="h-[400px] w-full" /> }
+);
+
+const HandHistoryList = dynamic(
+  () => import("@/components/hand-history-list").then(m => ({ default: m.HandHistoryList })),
+  { loading: () => <Skeleton className="h-[200px] w-full" /> }
+);
 
 export default function TableDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -64,7 +73,9 @@ export default function TableDetailPage({ params }: { params: Promise<{ id: stri
           </TabsList>
 
           <TabsContent value="live">
-            <LiveHandView tableId={id} />
+            <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+              <LiveHandView tableId={id} />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="info">
@@ -120,7 +131,7 @@ export default function TableDetailPage({ params }: { params: Promise<{ id: stri
               <CardHeader>
                 <CardTitle>Seats</CardTitle>
                 <CardDescription>
-                  {table.seats.filter((s) => s.agentId).length}/2 occupied
+                  {table.seats.filter((s) => s.agentId).length}/{table.maxSeats ?? table.seats.length} occupied
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -138,7 +149,9 @@ export default function TableDetailPage({ params }: { params: Promise<{ id: stri
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <HandHistoryList tableId={id} />
+                <Suspense fallback={<Skeleton className="h-[200px] w-full" />}>
+                  <HandHistoryList tableId={id} />
+                </Suspense>
               </CardContent>
             </Card>
           </TabsContent>

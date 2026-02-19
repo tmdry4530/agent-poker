@@ -1,11 +1,12 @@
 export interface TableInfo {
   id: string;
-  variant: string;
+  variant: "LHE" | string;
   status: "open" | "running" | "closed";
   seats: SeatInfo[];
   handsPlayed: number;
   currentHandId?: string | null;
   createdAt: number | string;
+  maxSeats?: number;
 }
 
 export interface SeatInfo {
