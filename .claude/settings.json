@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(docker compose *)",
+      "Bash(docker-compose *)"
+    ],
+    "deny": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(nc *)",
+      "Bash(socat *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Write(./secrets/**)",
+      "Write(**/*.pem)",
+      "Write(**/*.key)"
+    ]
+  },
+  "companyAnnouncements": [
+    "MVP1은 Web2(가상칩)만. Web3(x402/ERC-8004/온체인)는 MVP2 어댑터로만 추가.",
+    "poker-engine은 순수 상태기계 + 테스트로 잠그기. game-server는 이벤트 소싱 로그 필수."
+  ]
+}

@@ -1,0 +1,19 @@
+# Node / TS
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Env / secrets
+.env
+.env.*
+secrets/
+*.pem
+*.key
+
+# OS
+.DS_Store
+
+# Claude Code / MCP local state (project)
+.mcp.json
