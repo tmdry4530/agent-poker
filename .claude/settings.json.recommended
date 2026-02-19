@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "MCP_TIMEOUT": "10000",
+    "MAX_MCP_OUTPUT_TOKENS": "50000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(docker compose *)",
+      "Bash(docker-compose *)",
+
+      "Bash(gemini *)",
+      "Bash(codex *)"
+    ],
+    "deny": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(nc *)",
+      "Bash(socat *)",
+
+      "Read(./secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Write(./secrets/**)",
+      "Write(**/*.pem)",
+      "Write(**/*.key)"
+    ]
+  },
+  "companyAnnouncements": [
+    "MVP1은 Web2(가상칩)만. Web3(x402/ERC-8004/온체인)는 MVP2 어댑터로만 추가.",
+    "진행상황/실패/결정은 docs/STATUS.md, docs/WORKLOG.md, docs/FAILURE_LOG.md, docs/adr/* 에 기록.",
+    "UI는 v0 기반(수동 프롬프트 or v0 Platform API 자동). 키가 없으면 수동 프롬프트로 진행하고 막히지 말 것."
+  ]
+}

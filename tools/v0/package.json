@@ -1,0 +1,16 @@
+{
+  "name": "agent-poker-v0-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "node --loader ts-node/esm generate-admin-ui.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "v0-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
