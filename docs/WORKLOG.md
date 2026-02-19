@@ -1,6 +1,80 @@
 # WORKLOG (Chronological)
 
-> “무엇을 언제 왜 했는지” 타임라인 기록. 실패/우회/결정도 같이 남긴다.
+> "무엇을 언제 왜 했는지" 타임라인 기록. 실패/우회/결정도 같이 남긴다.
 
-## YYYY-MM-DD
-- HH:MM - (who) - (what) - (result) - (links/files)
+## 2026-02-19
+- 09:00 - Executor - Stage 0: Preflight - SUCCESS - docker-compose.yml, pnpm-workspace.yaml
+- 09:30 - Executor - Stage 1: Monorepo scaffold - SUCCESS - packages/*, apps/*, all builds green
+- 10:00 - Executor - Stage 2: Poker engine core - SUCCESS - packages/poker-engine (18 tests)
+  - HU Limit Hold'em state machine
+  - Deterministic RNG (mulberry32)
+  - Chip conservation, betting limits, showdown resolution
+  - Decision: JSON deep clone instead of structuredClone (ES2022 lib issue)
+- 11:00 - Executor - Stage 3: Event log + replay - SUCCESS - packages/hand-history (8 tests)
+  - Event sourcing architecture
+  - Deterministic replay verification
+  - Fix: Imported correct mulberry32 RNG from poker-engine
+- 12:00 - Executor - Stage 4: Virtual chips ledger - SUCCESS - packages/adapters-ledger (22 tests)
+  - Double-entry accounting
+  - Idempotent transaction references
+  - Chip conservation invariants
+- 13:00 - Executor - Stage 5: Game server + lobby - SUCCESS - apps/game-server, apps/lobby-api
+  - WebSocket protocol with versioning
+  - Table actor pattern
+  - Fastify HTTP routes
+  - Fix: Added game-server as workspace dependency for lobby-api
+- 14:00 - Executor - Stage 6: Sample bots + E2E - SUCCESS - scripts/demo-20-hands.ts
+  - CallingStation (always call/check)
+  - RandomBot (random valid actions)
+  - 20-hand demo with chip verification
+  - Fix: Added agent-sdk strategy tests (6 tests)
+- 15:00 - Executor - Stage 7: Admin UI - PARTIAL - apps/admin-ui
+  - Next.js scaffold created
+  - Placeholder only (v0 API unavailable)
+- 15:30 - Executor - Stage 8: Stabilize - SUCCESS - All packages
+  - Fixed exactOptionalPropertyTypes violations (spread syntax)
+  - Fixed MemoryHandHistoryStore empty event array bug
+  - Fixed tsx resolution with default export condition
+  - Final verification: 63 tests pass, E2E green
+- 16:00 - Executor - Documentation update - SUCCESS - docs/*
+  - Updated STATUS, WORKLOG, FAILURE_LOG, PROJECT_BOARD, MVP1_CHECKLIST
+  - Created RELEASE_NOTES_MVP1.md
+
+## 2026-02-20
+- 01:00 - Executor - Admin UI rebuild: Foundation - SUCCESS - apps/admin-ui
+  - Tailwind CSS v4 + shadcn/ui (New York style, dark poker theme)
+  - 8 shadcn components: button, card, badge, table, tabs, separator, skeleton, scroll-area
+  - Custom lib: api.ts, types.ts, hooks.ts (useApiData polling), utils.ts (cn, formatChips, formatTimestamp)
+  - globals.css with oklch dark poker theme (emerald primary)
+- 01:30 - Executor - Admin UI rebuild: Pages + Components - SUCCESS - apps/admin-ui
+  - Sidebar navigation, stat-card, table-status-badge, seats-display, event-timeline
+  - Dashboard (/ ) with 3 stat cards + recent tables + quick actions
+  - Table list (/tables) with create button + data table
+  - Table detail (/tables/[id]) with Live/Info/Seats/Hands tabs
+  - Hand detail (/tables/[id]/hands/[handId]) with event timeline
+- 02:00 - Executor - lobby-api: CORS + API fixes - SUCCESS - apps/lobby-api
+  - Added @fastify/cors for cross-origin admin-ui requests
+  - Fixed POST /api/tables 400 (empty body) and 500 (missing GameServerWs in standalone)
+  - Added hand history endpoints: GET /hands, GET /hands/:handId, GET /state
+  - Added hand history storage to TableActor (in-memory)
+- 02:30 - Executor - Admin UI: Live hand view - SUCCESS - apps/admin-ui
+  - PlayingCard component with suit symbols/colors
+  - LiveHandView: community cards, player hands, pot, 2s polling
+  - HandHistoryList: completed hands with cards + results
+  - Type fixes: SeatInfo (seatIndex), TableInfo (createdAt: number|string)
+- 03:00 - Executor - Live demo script - SUCCESS - scripts/demo-live.ts
+  - Starts WS + HTTP servers, creates table, joins 2 agents
+  - CallingStation vs AggressiveBot, plays N hands
+  - Keeps servers alive 30s for admin-ui viewing
+  - Verified with 10 and 20 hand runs
+- 03:30 - Executor - Admin UI: Visual poker table + API proxy - SUCCESS - apps/admin-ui
+  - 8 poker visual components: TableFelt, PokerCard, ChipStack, Seat, CommunityCards, PotBadge, ActionTicker, PokerTable
+  - Visual oval green felt table with 6 seats, cards, chips, pot badge, action ticker
+  - /table/[tableId] dedicated table view page
+  - 6 API proxy route handlers (Next.js route handlers -> lobby-api)
+  - lib/env.ts for environment config
+  - Build verified: all routes compile, 0 errors
+- 03:35 - Verification - Full test suite + demo - SUCCESS
+  - pnpm -r test: 63 tests passing (0 failures)
+  - demo-live.ts: 10 hands played successfully
+  - admin-ui build: all pages + API routes compiled

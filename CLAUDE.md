@@ -63,3 +63,11 @@
 - 상태전이(액션)는 invalid 케이스 포함 테스트로 잠근다.
 - 칩 보존/턴 순서/베팅 라운드 규칙은 “불변조건 테스트”로 강제한다.
 - 로그만으로 핸드를 재현할 수 있어야 한다.
+
+## Browser Automation
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+Core workflow:
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes

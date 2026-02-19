@@ -7,6 +7,20 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --parallel --filter @agent-poker/lobby-api --filter @agent-poker/game-server --filter @agent-poker/admin-ui dev",
+    "demo": "tsx scripts/demo-20-hands.ts"
+  },
+  "dependencies": {
+    "@agent-poker/poker-engine": "workspace:*",
+    "@agent-poker/hand-history": "workspace:*",
+    "@agent-poker/adapters-ledger": "workspace:*",
+    "@agent-poker/adapters-identity": "workspace:*",
+    "@agent-poker/agent-sdk": "workspace:*",
+    "@agent-poker/game-server": "workspace:*",
+    "@agent-poker/lobby-api": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
   }
 }

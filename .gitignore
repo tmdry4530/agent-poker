@@ -17,3 +17,13 @@ secrets/
 
 # Claude Code / MCP local state (project)
 .mcp.json
+.omc/
+.claude/plans/
+
+# Next.js build output
+.next/
+apps/admin-ui/.next/
+
+# Build info
+*.tsbuildinfo
+*.d.ts.map

@@ -1,32 +1,52 @@
 # UI with v0 (Admin UI for MVP1)
 
-## 목표
-MVP1에서 사람용 UI는 최소이지만, 개발/운영/디버깅을 위해 Admin UI를 둔다:
-- active tables list
-- table detail (players, stacks, current street)
-- last N hands + replay link
-- health (ws connections, timeouts)
+## Status
 
-## 워크플로 2가지
+MVP1 ships with a **placeholder Next.js Admin UI** (`apps/admin-ui`).
 
-### A) v0.app 수동 워크플로 (키 필요 없음)
-1) v0에서 UI 생성 프롬프트 실행
-2) 생성된 React/Next.js(shadcn/ui + Tailwind) 코드를 복사
-3) Next.js(apps/admin-ui)에 붙여넣고 의존성 설치 후 통합
+The v0 Platform API was not available during MVP1 development, so the UI was built manually as static pages.
 
-### B) v0 Platform API 자동 워크플로 (V0_API_KEY 필요)
-- `.env`의 `V0_API_KEY`를 설정하면 tools/v0 스크립트로 자동 생성 가능
-- 생성물은 우선 `tools/v0/output/`에 떨어뜨리고, 에이전트가 apps/admin-ui로 통합한다.
+## Current Placeholder Routes
 
-## v0 프롬프트(권장)
-아래 프롬프트를 v0에 입력하거나, Platform API message로 사용:
+- `/` — Dashboard with endpoint list and summary cards (static)
+- `/tables` — Tables list (static, no API connection)
 
-"Build a minimal Admin dashboard UI for an agent-only poker platform (MVP1). Tech: Next.js App Router + TypeScript + Tailwind + shadcn/ui.
+## v0 Prompt (for future generation)
+
+When the v0 API key becomes available, use the following prompt to generate the admin UI:
+
+```
+Build a minimal Admin dashboard UI for an agent-only poker platform (MVP1).
+Tech: Next.js 15 App Router + TypeScript + Tailwind + shadcn/ui.
+
 Pages:
-1) /tables: list tables (id, status, players, handsPlayed, createdAt)
-2) /tables/[id]: table detail with stacks, pot, current street, last 20 events, and buttons to fetch snapshot/replay.
-Use shadcn/ui components (Card, Table, Badge, Tabs, Button).
-No auth UI needed; assume an X-ADMIN-API-KEY header exists."
+1) / (Dashboard): Summary cards (active tables, total hands, agents). Recent hands list.
+2) /tables: List tables (id, status, players, handsPlayed, createdAt). "Create Table" button.
+3) /tables/[id]: Table detail with stacks, pot, current street, seats.
+   - Hand history list with winner, pot, timestamp.
+   - Click hand -> event log timeline.
+4) /tables/[id]/hands/[handId]: Full event log, final result, "Replay Verification" button.
 
-## 실패/차선책
-- V0_API_KEY가 없거나 API 호출이 실패하면, 에이전트는 수동 프롬프트 방식으로 진행하되 MVP1 개발은 멈추지 않는다.
+Use shadcn/ui components (Card, Table, Badge, Tabs, Button).
+Dark theme, monospace for data. No auth UI needed; assume X-ADMIN-API-KEY header.
+
+API endpoints (lobby-api at :8080):
+- GET /api/tables
+- POST /api/tables
+- GET /api/tables/:id
+- POST /api/tables/:id/join { agentId, buyIn }
+- GET /api/tables/:id/hands
+- POST /api/agents
+```
+
+## Integration Steps
+
+1. Set `V0_API_KEY` in `.env`
+2. Generate components via v0 Platform API or manual v0.app workflow
+3. Place generated code in `apps/admin-ui/app/`
+4. Add API fetch calls pointing to `LOBBY_API_URL` env var (default `http://localhost:8080`)
+5. Test with `pnpm --filter @agent-poker/admin-ui dev`
+
+## Fallback
+
+If V0_API_KEY is unavailable or API call fails, use manual v0.app workflow (copy-paste generated code) or keep the current placeholder.
