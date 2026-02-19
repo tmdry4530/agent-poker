@@ -1,0 +1,50 @@
+# --- Build stage ---
+FROM node:20-slim AS build
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Copy workspace root manifests
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+
+# Copy all package manifests (for dependency resolution)
+COPY apps/lobby-api/package.json apps/lobby-api/
+COPY packages/poker-engine/package.json packages/poker-engine/
+COPY packages/hand-history/package.json packages/hand-history/
+COPY packages/agent-sdk/package.json packages/agent-sdk/
+COPY packages/database/package.json packages/database/
+COPY packages/adapters-identity/package.json packages/adapters-identity/
+COPY packages/adapters-ledger/package.json packages/adapters-ledger/
+COPY apps/game-server/package.json apps/game-server/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/ packages/
+COPY apps/lobby-api/ apps/lobby-api/
+
+# Build all workspace packages then the app
+RUN pnpm -r build
+
+# Deploy minimal production install
+RUN pnpm deploy --filter @agent-poker/lobby-api --prod /app/deploy
+
+# --- Runtime stage ---
+FROM node:20-slim AS runtime
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+WORKDIR /app
+
+COPY --from=build /app/deploy/dist ./dist/
+COPY --from=build /app/deploy/node_modules ./node_modules/
+COPY --from=build /app/deploy/package.json ./
+
+USER appuser
+
+ENV NODE_ENV=production
+EXPOSE 8080
+
+CMD ["node", "dist/index.js"]

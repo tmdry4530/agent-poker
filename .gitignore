@@ -5,9 +5,17 @@ build/
 coverage/
 *.log
 
-# Env / secrets
+# Compiled output in src/ directories
+apps/*/src/**/*.js
+apps/*/src/**/*.d.ts
+apps/*/src/**/*.js.map
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+
+# Env / secrets (keep .env.example)
 .env
-.env.*
+!.env.example
 secrets/
 *.pem
 *.key
@@ -15,15 +23,18 @@ secrets/
 # OS
 .DS_Store
 
-# Claude Code / MCP local state (project)
-.mcp.json
-.omc/
-.claude/plans/
-
-# Next.js build output
+# Next.js
 .next/
 apps/admin-ui/.next/
+
+# Turbo
+.turbo/
 
 # Build info
 *.tsbuildinfo
 *.d.ts.map
+
+# Claude Code / MCP local state (project)
+.mcp.json
+.omc/
+.claude/plans/

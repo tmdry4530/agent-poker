@@ -123,6 +123,8 @@ export class AgentClient {
       potAmount,
       isMyTurn: true,
       legalActions: this.inferLegalActions(myPlayer, state),
+      bettingMode: state.config?.bettingMode,
+      actionRanges: state.actionRanges,
       // HU backward-compat (deprecated)
       opponentId: firstOpponent?.id,
       opponentChips: firstOpponent?.chips,

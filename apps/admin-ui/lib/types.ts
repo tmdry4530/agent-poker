@@ -29,3 +29,52 @@ export interface HandEvent {
   timestamp: string;
   data: Record<string, unknown>;
 }
+
+export interface AgentInfo {
+  id: string;
+  name: string;
+  status: "online" | "offline" | "banned";
+  balance: number;
+  totalHands: number;
+  winRate: number;
+  joinedAt: string | number;
+}
+
+export interface AgentDetail extends AgentInfo {
+  sessions: AgentSession[];
+  pnlHistory: PnlDataPoint[];
+}
+
+export interface AgentSession {
+  sessionId: string;
+  tableId: string;
+  startedAt: string | number;
+  endedAt?: string | number | null;
+  handsPlayed: number;
+  pnl: number;
+}
+
+export interface PnlDataPoint {
+  date: string;
+  pnl: number;
+}
+
+export interface MatchmakingQueue {
+  blindLevel: string;
+  smallBlind: number;
+  bigBlind: number;
+  count: number;
+  avgWaitTimeSec: number;
+}
+
+export interface MatchmakingHistory {
+  tableId: string;
+  blindLevel: string;
+  createdAt: string | number;
+  players: string[];
+}
+
+export interface MatchmakingStatus {
+  queues: MatchmakingQueue[];
+  recentMatches: MatchmakingHistory[];
+}

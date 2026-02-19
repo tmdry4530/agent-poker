@@ -1,7 +1,7 @@
 {
   "name": "agent-poker",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Agent-only poker platform (MVP1: Web2 chips, MVP2: Web3 adapters).",
   "scripts": {
     "lint": "pnpm -r lint",

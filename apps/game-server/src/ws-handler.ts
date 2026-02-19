@@ -5,6 +5,8 @@ import { PROTOCOL_VERSION, type WsEnvelope } from './types.js';
 import { logger } from './logger.js';
 import { EventRingBuffer } from './event-ring-buffer.js';
 import { RateLimiter } from './rate-limiter.js';
+import { verifySeatToken, refreshSeatToken } from './seat-token.js';
+import { WsEnvelopeSchema, HelloPayloadSchema, ActionPayloadSchema } from './schemas.js';
 
 interface ConnectedClient {
   ws: WebSocket;
@@ -14,15 +16,24 @@ interface ConnectedClient {
   lastSeenEventId?: number;
 }
 
+// ── Connection limits ──────────────────────────────────────
+const MAX_CONNECTIONS_PER_AGENT = 10;
+const MAX_TABLES_PER_AGENT = 8;
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_TIMEOUT_MS = 10_000;
+
 export class GameServerWs {
   private wss: WebSocketServer | null = null;
   private tables = new Map<string, TableActor>();
   private clients = new Map<WebSocket, ConnectedClient>();
   private agentToWs = new Map<string, WebSocket>(); // agentId -> ws (latest)
   private agentToTables = new Map<string, Set<string>>(); // agentId -> Set<tableId> (multi-table support)
+  private agentConnectionCount = new Map<string, number>(); // agentId -> active WS count
   private eventBuffers = new Map<string, EventRingBuffer>(); // tableId -> buffer
   private rateLimiter = new RateLimiter();
   private disconnectGraceMs: number;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private pongReceived = new WeakSet<WebSocket>();
 
   constructor() {
     this.disconnectGraceMs = parseInt(process.env['DISCONNECT_GRACE_MS'] ?? '60000', 10);
@@ -52,33 +63,190 @@ export class GameServerWs {
   }
 
   start(port: number): Promise<void> {
+    const allowedOrigins = this.getAllowedOrigins();
+
     return new Promise((resolve) => {
-      this.wss = new WebSocketServer({ port });
+      this.wss = new WebSocketServer({
+        port,
+        verifyClient: allowedOrigins
+          ? (info, cb) => {
+              const origin = info.origin ?? info.req.headers['origin'];
+              if (!origin || allowedOrigins.includes(origin)) {
+                cb(true);
+              } else {
+                logger.warn({ origin }, 'WS connection rejected: origin not allowed');
+                cb(false, 403, 'Origin not allowed');
+              }
+            }
+          : undefined,
+      });
       this.wss.on('connection', (ws) => this.handleConnection(ws));
-      this.wss.on('listening', () => resolve());
+      this.wss.on('listening', () => {
+        this.startHeartbeat();
+        resolve();
+      });
     });
   }
 
+  private startHeartbeat(): void {
+    this.heartbeatTimer = setInterval(() => {
+      for (const [ws, client] of this.clients) {
+        if (!this.pongReceived.has(ws)) {
+          // No pong received since last ping — terminate
+          logger.warn({ agentId: client.agentId, tableId: client.tableId }, 'Heartbeat timeout, disconnecting');
+          ws.terminate();
+          continue;
+        }
+        // Mark as not-yet-ponged and send ping
+        this.pongReceived.delete(ws);
+        ws.ping();
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private getAllowedOrigins(): string[] | null {
+    const corsOrigins = process.env['CORS_ORIGINS'];
+    if (corsOrigins) {
+      return corsOrigins.split(',').map((o) => o.trim());
+    }
+    if (process.env['NODE_ENV'] === 'production') {
+      // In production without CORS_ORIGINS, reject all browser origins
+      return [];
+    }
+    // Development: allow all origins (agents connect directly, no browser origin)
+    return null;
+  }
+
   stop(): void {
+    this.stopHeartbeat();
     for (const [, table] of this.tables) {
       table.close();
     }
     this.wss?.close();
   }
 
-  private handleConnection(ws: WebSocket): void {
-    ws.on('message', (data) => {
-      try {
-        const msg = JSON.parse(data.toString()) as WsEnvelope;
-        void this.handleMessage(ws, msg);
-      } catch (err) {
-        this.sendError(ws, 'INTERNAL', 'Invalid JSON');
+  /**
+   * Graceful shutdown: notify all connected agents, wait for clean disconnect,
+   * then force-close remaining connections and shut down the server.
+   */
+  async gracefulStop(graceMs = 5000): Promise<void> {
+    logger.info('Graceful shutdown initiated');
+    this.stopHeartbeat();
+
+    // 1. Send SHUTDOWN to all connected clients
+    for (const [ws, client] of this.clients) {
+      this.send(ws, {
+        protocolVersion: PROTOCOL_VERSION,
+        type: 'SHUTDOWN' as any,
+        payload: { reason: 'Server shutting down', graceMs },
+      });
+    }
+
+    // 2. Stop accepting new connections
+    if (this.wss) {
+      this.wss.removeAllListeners('connection');
+    }
+
+    // 3. Wait for clients to disconnect gracefully
+    const deadline = Date.now() + graceMs;
+    while (this.clients.size > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    // 4. Force close remaining connections
+    const remaining = this.clients.size;
+    if (remaining > 0) {
+      logger.warn({ remaining }, 'Force-closing remaining connections');
+      for (const [ws] of this.clients) {
+        ws.terminate();
       }
+    }
+
+    // 5. Close all tables and the server
+    for (const [, table] of this.tables) {
+      table.close();
+    }
+    this.wss?.close();
+    logger.info('WebSocket server stopped');
+  }
+
+  /**
+   * Terminate a single table due to an unhandled error.
+   * Notifies all connected clients at the table, closes the table,
+   * and removes it from the server — without affecting other tables.
+   */
+  private terminateTable(tableId: string, reason: string): void {
+    logger.warn({ tableId, reason }, 'Terminating table due to error');
+
+    // Notify all clients at this table
+    for (const [ws, client] of this.clients) {
+      if (client.tableId === tableId) {
+        this.sendError(ws, 'TABLE_TERMINATED', `Table terminated: ${reason}`);
+      }
+    }
+
+    // Close the table actor
+    const table = this.tables.get(tableId);
+    if (table) {
+      table.close();
+      this.tables.delete(tableId);
+    }
+
+    // Clean up event buffer
+    this.eventBuffers.delete(tableId);
+  }
+
+  private handleConnection(ws: WebSocket): void {
+    const MAX_MESSAGE_SIZE = 16 * 1024; // 16KB
+
+    // Mark as alive for heartbeat (newly connected = alive)
+    this.pongReceived.add(ws);
+    ws.on('pong', () => {
+      this.pongReceived.add(ws);
+    });
+
+    ws.on('message', (data) => {
+      const raw = data instanceof Buffer ? data : Buffer.from(data as ArrayBuffer);
+      if (raw.length > MAX_MESSAGE_SIZE) {
+        this.sendError(ws, 'INVALID_ACTION', 'Message too large (max 16KB)');
+        return;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw.toString());
+      } catch {
+        this.sendError(ws, 'INTERNAL', 'Invalid JSON');
+        return;
+      }
+
+      const result = WsEnvelopeSchema.safeParse(parsed);
+      if (!result.success) {
+        this.sendError(ws, 'INVALID_ACTION', 'Invalid message format');
+        return;
+      }
+
+      void this.handleMessage(ws, result.data as WsEnvelope);
     });
 
     ws.on('close', () => {
       const client = this.clients.get(ws);
       if (client) {
+        // Decrement connection count
+        const count = this.agentConnectionCount.get(client.agentId) ?? 1;
+        if (count <= 1) {
+          this.agentConnectionCount.delete(client.agentId);
+        } else {
+          this.agentConnectionCount.set(client.agentId, count - 1);
+        }
+
         // Remove from agent → tables mapping
         const tables = this.agentToTables.get(client.agentId);
         if (tables) {
@@ -110,17 +278,21 @@ export class GameServerWs {
       case 'PING':
         this.send(ws, { protocolVersion: PROTOCOL_VERSION, type: 'PONG', payload: {} });
         break;
+      case 'REFRESH_TOKEN':
+        this.handleRefreshToken(ws, msg);
+        break;
       default:
         this.sendError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown type: ${msg.type}`);
     }
   }
 
   private async handleHello(ws: WebSocket, msg: WsEnvelope): Promise<void> {
-    const payload = msg.payload as { agentId?: string; seatToken?: string; lastSeenEventId?: number } | undefined;
-    if (!payload?.agentId || !payload?.seatToken) {
-      this.sendError(ws, 'AUTH_FAILED', 'Missing agentId or seatToken');
+    const parseResult = HelloPayloadSchema.safeParse(msg.payload);
+    if (!parseResult.success) {
+      this.sendError(ws, 'AUTH_FAILED', 'Invalid HELLO payload');
       return;
     }
+    const payload = parseResult.data;
 
     const tableId = msg.tableId;
     if (!tableId) {
@@ -134,11 +306,40 @@ export class GameServerWs {
       return;
     }
 
-    // Verify seat token
+    // Verify JWT seat token (signature + expiry)
+    const tokenPayload = verifySeatToken(payload.seatToken);
+    if (!tokenPayload) {
+      this.sendError(ws, 'AUTH_FAILED', 'Invalid or expired seatToken');
+      return;
+    }
+
+    // Verify token claims match the request
+    if (tokenPayload.agentId !== payload.agentId || tokenPayload.tableId !== tableId) {
+      this.sendError(ws, 'AUTH_FAILED', 'seatToken does not match agentId or tableId');
+      return;
+    }
+
+    // Verify seat exists on the table
     const seats = table.getSeats();
     const seat = seats.find((s) => s.agentId === payload.agentId && s.seatToken === payload.seatToken);
     if (!seat) {
       this.sendError(ws, 'AUTH_FAILED', 'Invalid seatToken for this agent');
+      return;
+    }
+
+    // Enforce connection limits
+    const currentConns = this.agentConnectionCount.get(payload.agentId) ?? 0;
+    if (currentConns >= MAX_CONNECTIONS_PER_AGENT) {
+      this.sendError(ws, 'CONNECTION_LIMIT', `Max ${MAX_CONNECTIONS_PER_AGENT} connections per agent`);
+      return;
+    }
+
+    // Enforce table limits
+    const currentTables = this.agentToTables.get(payload.agentId);
+    const tableCount = currentTables ? currentTables.size : 0;
+    const isNewTable = !currentTables || !currentTables.has(tableId);
+    if (isNewTable && tableCount >= MAX_TABLES_PER_AGENT) {
+      this.sendError(ws, 'TABLE_LIMIT', `Max ${MAX_TABLES_PER_AGENT} tables per agent`);
       return;
     }
 
@@ -152,6 +353,7 @@ export class GameServerWs {
     };
     this.clients.set(ws, client);
     this.agentToWs.set(payload.agentId, ws);
+    this.agentConnectionCount.set(payload.agentId, currentConns + 1);
 
     // Track agent → tables mapping (multi-table support)
     if (!this.agentToTables.has(payload.agentId)) {
@@ -228,11 +430,12 @@ export class GameServerWs {
       return;
     }
 
-    const actionPayload = msg.payload as { action?: string; amount?: number } | undefined;
-    if (!actionPayload?.action) {
-      this.sendError(ws, 'INVALID_ACTION', 'Missing action in payload', msg.requestId);
+    const parseResult = ActionPayloadSchema.safeParse(msg.payload);
+    if (!parseResult.success) {
+      this.sendError(ws, 'INVALID_ACTION', 'Invalid ACTION payload', msg.requestId);
       return;
     }
+    const actionPayload = parseResult.data;
 
     const actionMap: Record<string, ActionType> = {
       FOLD: ActionType.FOLD,
@@ -242,11 +445,7 @@ export class GameServerWs {
       RAISE: ActionType.RAISE,
     };
 
-    const actionType = actionMap[actionPayload.action];
-    if (!actionType) {
-      this.sendError(ws, 'INVALID_ACTION', `Unknown action: ${actionPayload.action}`, msg.requestId);
-      return;
-    }
+    const actionType = actionMap[actionPayload.action]!;
 
     const playerAction: PlayerAction = {
       type: actionType,
@@ -288,9 +487,49 @@ export class GameServerWs {
       if (err instanceof PokerError) {
         this.sendError(ws, err.code, err.message, msg.requestId);
       } else {
-        this.sendError(ws, 'INTERNAL', (err as Error).message, msg.requestId);
+        // Unexpected error: isolate the failure to this table only
+        logger.error(
+          { err, tableId: client.tableId, agentId: client.agentId },
+          'Unhandled error in table-actor, terminating table',
+        );
+        this.terminateTable(client.tableId, (err as Error).message);
       }
     }
+  }
+
+  private handleRefreshToken(ws: WebSocket, msg: WsEnvelope): void {
+    const client = this.clients.get(ws);
+    if (!client) {
+      this.sendError(ws, 'AUTH_FAILED', 'Not authenticated. Send HELLO first.');
+      return;
+    }
+
+    const newToken = refreshSeatToken(client.seatToken);
+    if (!newToken) {
+      this.sendError(ws, 'AUTH_FAILED', 'Token refresh failed. Re-join the table.');
+      return;
+    }
+
+    // Update stored token
+    client.seatToken = newToken;
+
+    // Update the seat token on the table actor
+    const table = this.tables.get(client.tableId);
+    if (table) {
+      const seats = table.getSeats();
+      const seat = seats.find((s) => s.agentId === client.agentId);
+      if (seat) {
+        seat.seatToken = newToken;
+      }
+    }
+
+    this.send(ws, {
+      protocolVersion: PROTOCOL_VERSION,
+      type: 'TOKEN_REFRESHED',
+      payload: { seatToken: newToken },
+    });
+
+    logger.info({ agentId: client.agentId, tableId: client.tableId }, 'Seat token refreshed');
   }
 
   broadcastState(tableId: string, state: any): void {

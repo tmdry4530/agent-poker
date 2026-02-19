@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: agent-poker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentpoker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-agentpoker}
+    volumes:
+      - agent_poker_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentpoker} -d ${POSTGRES_DB:-agentpoker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: agent-poker-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - agent_poker_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  lobby-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.lobby-api
+    container_name: agent-poker-lobby-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
+      REDIS_URL: redis://redis:6379
+      PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  game-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.game-server
+    container_name: agent-poker-game-server
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
+      REDIS_URL: redis://redis:6379
+      PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  admin-ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.admin-ui
+    container_name: agent-poker-admin-ui
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_LOBBY_API_URL: http://lobby-api:8080
+      NEXT_PUBLIC_GAME_SERVER_URL: ws://game-server:8081
+    depends_on:
+      - lobby-api
+      - game-server
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  agent_poker_pgdata:
+  agent_poker_redis:

@@ -2,8 +2,8 @@
 
 export const PROTOCOL_VERSION = 1;
 
-export type ClientMessageType = 'HELLO' | 'ACTION' | 'PING';
-export type ServerMessageType = 'WELCOME' | 'STATE' | 'ACK' | 'ERROR' | 'PONG' | 'HAND_COMPLETE';
+export type ClientMessageType = 'HELLO' | 'ACTION' | 'PING' | 'REFRESH_TOKEN';
+export type ServerMessageType = 'WELCOME' | 'STATE' | 'ACK' | 'ERROR' | 'PONG' | 'HAND_COMPLETE' | 'TOKEN_REFRESHED' | 'SHUTDOWN';
 
 export interface WsEnvelope {
   protocolVersion: number;

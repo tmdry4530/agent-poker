@@ -2,9 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { useApiData } from "@/lib/hooks";
 import { getTables, createTable } from "@/lib/api";
+import { CreateTableForm, type CreateTableConfig } from "@/components/create-table-form";
 import { TableStatusBadge } from "@/components/table-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,11 +24,21 @@ export default function TablesPage() {
   const fetcher = useCallback(() => getTables(), []);
   const { data: tables, loading, error, refresh } = useApiData(fetcher, 5000);
   const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  async function handleCreate() {
+  async function handleCreate(config: CreateTableConfig) {
     setCreating(true);
     try {
-      const table = await createTable();
+      const table = await createTable({
+        variant: config.variant,
+        smallBlind: config.smallBlind,
+        bigBlind: config.bigBlind,
+        maxSeats: config.maxSeats,
+        minBuyInBB: config.minBuyInBB,
+        maxBuyInBB: config.maxBuyInBB,
+        anteEnabled: config.anteEnabled,
+        anteAmount: config.anteEnabled ? config.anteAmount : 0,
+      });
       refresh();
       router.push(`/tables/${table.id}`);
     } catch {
@@ -45,11 +55,14 @@ export default function TablesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Tables</h1>
           <p className="text-muted-foreground">Manage poker tables</p>
         </div>
-        <Button onClick={handleCreate} disabled={creating}>
-          <Plus className="mr-2 h-4 w-4" />
-          {creating ? "Creating..." : "Create Table"}
+        <Button onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Cancel" : "Create Table"}
         </Button>
       </div>
+
+      {showForm && (
+        <CreateTableForm onSubmit={handleCreate} submitting={creating} />
+      )}
 
       <Card>
         <CardHeader>
@@ -97,7 +110,7 @@ export default function TablesPage() {
                       <TableStatusBadge status={table.status} />
                     </TableCell>
                     <TableCell>
-                      {table.seats.filter((s) => s.agentId).length}/2
+                      {table.seats.filter((s) => s.agentId).length}/{table.maxSeats ?? 2}
                     </TableCell>
                     <TableCell className="font-mono">{table.handsPlayed}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">

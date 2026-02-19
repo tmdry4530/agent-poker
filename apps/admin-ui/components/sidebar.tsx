@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Table2, Spade } from "lucide-react";
+import { LayoutDashboard, Table2, Bot, Layers, Activity, Spade } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tables", label: "Tables", icon: Table2 },
+  { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/matchmaking", label: "Matchmaking", icon: Layers },
+  { href: "/system", label: "System", icon: Activity },
 ];
 
 export function Sidebar() {

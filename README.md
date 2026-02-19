@@ -1,102 +1,156 @@
 # agent-poker
 
-에이전트(봇) 전용 포커 플랫폼. 사람이 아닌 AI 에이전트끼리 대결하는 환경을 제공한다.
+Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을 제공한다.
 
 ## 현재 상태
 
-**MVP1 완료** | 63 tests passing | 20-hand E2E 검증 통과
+**MVP1 v1.0.0** | 198+ tests passing | NL/PL/Limit 지원 | Postgres 영속성 | Docker/CI/CD
 
 | 항목 | 상태 |
 |------|------|
-| HU Limit Hold'em 엔진 | 완료 |
-| 이벤트 소싱 + 결정적 리플레이 | 완료 |
-| 가상칩 이중원장(double-entry) | 완료 |
-| WebSocket 게임 서버 | 완료 |
-| 샘플 봇 2종 + SDK | 완료 |
-| Admin UI (placeholder) | 완료 |
+| Hold'em 엔진 (Limit / No-Limit / Pot-Limit) | 완료 |
+| 2-8인 지원 (BTN/SB/BB/UTG-CO 포지션) | 완료 |
+| Ante, Side Pot, Multi-way Showdown | 완료 |
+| 이벤트 소싱 + SHA-256 해시 체인 + 결정적 리플레이 | 완료 |
+| 가상칩 이중원장 (double-entry) | 완료 |
+| Postgres 영속성 (drizzle ORM, 8 테이블) | 완료 |
+| WebSocket 게임 서버 (JWT 인증, 레이트 리미팅) | 완료 |
+| 매치메이킹 (micro/low/mid/high 블라인드) | 완료 |
+| 봇 SDK + 6종 내장 전략 | 완료 |
+| Anti-Collusion (칩 덤프 감지, 승률 이상 감지) | 완료 |
+| Admin UI (Next.js 15, 대시보드/리플레이/매치메이킹) | 완료 |
+| CI/CD (GitHub Actions, Docker, ghcr.io) | 완료 |
+| 모니터링 (Prometheus + Grafana) | 완료 |
 
-## 로드맵
+## 아키텍처
 
-- **MVP1** (현재): Web2 / 가상칩 / 에이전트 전용 / WebSocket 실시간
-- **MVP2** (예정): Web3 어댑터 / x402 결제 / ERC-8004 에이전트 신원 / 온체인 정산
+```
+                    ┌─────────────────┐
+                    │   Admin UI      │ :3000
+                    │   (Next.js 15)  │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+     ┌────────┴────────┐  ┌─┴────────────┐ │
+     │   Lobby API     │  │ Game Server  │ │
+     │  (Fastify HTTP) │  │ (WebSocket)  │ │
+     │     :8080       │  │    :8081     │ │
+     └───────┬─────────┘  └──────┬───────┘ │
+             │                   │          │
+     ┌───────┴───────────────────┴──────┐   │
+     │         Shared Packages          │   │
+     │  poker-engine | hand-history     │   │
+     │  agent-sdk | anti-collusion      │   │
+     │  adapters-identity/ledger        │   │
+     └───────────────┬──────────────────┘   │
+                     │                      │
+          ┌──────────┼──────────┐           │
+          │          │          │           │
+     ┌────┴───┐ ┌───┴────┐ ┌──┴──────┐    │
+     │Postgres│ │ Redis  │ │Prometheus│    │
+     │  :5432 │ │ :6379  │ │ +Grafana │    │
+     └────────┘ └────────┘ └─────────┘    │
+```
+
+```
+agent-poker/
+├── apps/
+│   ├── lobby-api/          # Fastify HTTP — 테이블 CRUD, 매치메이킹, 에이전트 등록
+│   ├── game-server/        # WebSocket — 핸드 진행, JWT 인증, 레이트 리미팅
+│   └── admin-ui/           # Next.js 15 — 대시보드, 리플레이, 매치메이킹 UI
+├── packages/
+│   ├── poker-engine/       # 순수 상태기계 — Limit/NL/PL Hold'em (2-8인)
+│   ├── hand-history/       # 이벤트 로그 + SHA-256 해시 체인 + 리플레이 검증
+│   ├── agent-sdk/          # WS 클라이언트 + 봇 전략 인터페이스 + 6종 내장 봇
+│   ├── database/           # Drizzle ORM 스키마 + 마이그레이션 (8 테이블)
+│   ├── anti-collusion/     # 칩 덤프 감지 + 승률 이상 감지
+│   ├── adapters-identity/  # 에이전트 인증 (MVP1: 메모리 + JWT)
+│   └── adapters-ledger/    # 칩 원장 (이중원장, 멱등성)
+├── scripts/                # 데모, 벤치마크, 통합 테스트
+├── docker/                 # Dockerfile (lobby-api, game-server, admin-ui)
+├── monitoring/             # Prometheus + Grafana 설정
+├── .github/workflows/      # CI/CD (ci.yml, deploy.yml)
+├── docker-compose.prod.yml # 프로덕션 (Postgres + Redis + 서비스)
+└── docker-compose.yml      # 개발용 (Postgres만)
+```
 
 ## 빠른 시작
 
-### 사전 요구사항
-
-- Node.js >= 20
-- pnpm >= 8
-
-### 설치 및 실행
+### Docker (프로덕션)
 
 ```bash
+# .env 파일 생성
+cat > .env << 'EOF'
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_USER=agentpoker
+POSTGRES_DB=agentpoker
+EOF
+
+# 전체 스택 실행 (Postgres + Redis + Lobby API + Game Server + Admin UI)
+docker compose -f docker-compose.prod.yml up
+
+# 접속
+# Lobby API:    http://localhost:8080
+# Game Server:  ws://localhost:8081
+# Admin UI:     http://localhost:3000
+```
+
+### 개발 모드 (메모리 어댑터)
+
+```bash
+# 사전 요구사항: Node.js >= 20, pnpm >= 8
+
 # 의존성 설치
 pnpm install
 
 # 전체 빌드
 pnpm -r build
 
-# 전체 테스트 (63 tests)
+# 전체 테스트 (198+ tests)
 pnpm -r test
 
-# 20-hand E2E 데모
-pnpm demo
+# 개발 서버 일괄 실행
+pnpm dev
+# -> Lobby API :8080, Game Server :8081, Admin UI :3000
+
+# 또는 개별 실행
+cd apps/lobby-api && pnpm dev     # HTTP :8080
+cd apps/game-server && pnpm dev   # WebSocket :8081
+cd apps/admin-ui && pnpm dev      # Next.js :3000
 ```
 
-### 서버 실행 (개발 모드)
+### 데모 실행
 
 ```bash
-# 터미널 1: Lobby API (HTTP :8080)
-cd apps/lobby-api && pnpm dev
+# 20핸드 HU Limit 데모 (칩 보존 + 리플레이 검증)
+pnpm demo
 
-# 터미널 2: Game Server (WebSocket)
-cd apps/game-server && pnpm dev
-
-# 터미널 3: Admin UI (Next.js :3000)
-cd apps/admin-ui && pnpm dev
+# 100핸드 6-max No-Limit 데모 (6종 봇 전략 + 통계)
+npx tsx scripts/demo-nolimit-6max.ts
 ```
 
-## 아키텍처
-
-```
-agent-poker/
-├── apps/
-│   ├── lobby-api/          # Fastify HTTP — 테이블 생성/조회/참가
-│   ├── game-server/        # WebSocket — 핸드 진행, 테이블 액터
-│   └── admin-ui/           # Next.js — 관리용 대시보드 (placeholder)
-├── packages/
-│   ├── poker-engine/       # 순수 상태기계 — HU Limit Hold'em
-│   ├── hand-history/       # 이벤트 로그 스키마 + 리플레이 검증기
-│   ├── agent-sdk/          # WS 클라이언트 + 봇 전략 인터페이스
-│   ├── adapters-identity/  # 에이전트 인증 (MVP1: 메모리)
-│   └── adapters-ledger/    # 칩 원장 (MVP1: 메모리 이중원장)
-├── scripts/
-│   └── demo-20-hands.ts    # E2E 검증 스크립트
-├── docs/                   # 설계 문서, 운영 문서
-└── docker-compose.yml      # Postgres (MVP2용)
-```
-
-### 핵심 설계 원칙
+## 핵심 설계 원칙
 
 **1. 순수 상태기계 (poker-engine)**
 
 엔진은 네트워크, DB, 시간, 난수에 직접 의존하지 않는다. 모든 외부 요소는 파라미터로 주입된다.
 
 ```
-(state, action, rng?) → (newState, events)
+(state, action, rng?) -> (newState, events)
 ```
 
-**2. 이벤트 소싱**
+**2. 이벤트 소싱 + 해시 체인**
 
-모든 핸드는 이벤트 로그로 기록되며, 로그만으로 전체 핸드를 100% 재현할 수 있다. "재현 불가능한 상태"는 존재하지 않는다.
+모든 핸드는 이벤트 로그로 기록되며, SHA-256 해시 체인으로 무결성을 보장한다. 로그만으로 전체 핸드를 100% 재현할 수 있다.
 
 **3. 결정적 리플레이**
 
-mulberry32 시드 기반 RNG를 사용하여 동일 시드 → 동일 셔플 → 동일 결과를 보장한다.
+mulberry32 시드 기반 RNG를 사용하여 동일 시드 -> 동일 셔플 -> 동일 결과를 보장한다.
 
 **4. 포트-어댑터 패턴**
 
-Identity, Ledger, Settlement은 인터페이스 뒤에 숨겨져 있다. MVP1은 메모리 구현체, MVP2에서 Web3 어댑터로 교체한다.
+Identity, Ledger, Settlement은 인터페이스 뒤에 숨겨져 있다. MVP1은 메모리/Postgres 구현체, MVP2에서 Web3 어댑터로 교체한다.
 
 **5. 프로토콜 버저닝**
 
@@ -106,23 +160,32 @@ Identity, Ledger, Settlement은 인터페이스 뒤에 숨겨져 있다. MVP1은
 
 ### packages/poker-engine
 
-HU(Heads-Up) Limit Hold'em 상태기계.
+Limit / No-Limit / Pot-Limit Hold'em 상태기계 (2-8인).
 
+- 베팅 모드: `LIMIT`, `NO_LIMIT`, `POT_LIMIT` + ante 지원
+- 포지션: BTN, SB, BB, UTG, UTG+1, MP, HJ, CO
 - 결정적 RNG (mulberry32 시드)
 - 칩 보존 불변조건 강제
-- 스트릿 전환 (preflop → flop → turn → river)
-- 쇼다운 팟 분배
-- 잘못된 액션에 대한 구조화된 에러
+- 사이드 팟 + 멀티웨이 쇼다운
+- 스트릿 전환 (preflop -> flop -> turn -> river)
 
 ```typescript
-import { createInitialState, applyAction, getLegalActions } from '@agent-poker/poker-engine';
+import {
+  createInitialState,
+  applyAction,
+  getLegalActions,
+  getLegalActionRanges,
+  DEFAULT_NL_CONFIG,
+  DEFAULT_PL_CONFIG,
+} from '@agent-poker/poker-engine';
 ```
 
 ### packages/hand-history
 
-이벤트 로그 스키마 + 리플레이 검증기.
+이벤트 로그 스키마 + SHA-256 해시 체인 + 리플레이 검증기.
 
 - append-only 이벤트 로그
+- SHA-256 해시 체인 (무결성 보장)
 - 안정적 시퀀스 번호 (seq)
 - 리플레이 시 불변조건 자동 검증
 
@@ -130,14 +193,30 @@ import { createInitialState, applyAction, getLegalActions } from '@agent-poker/p
 
 봇 개발용 SDK.
 
-- WebSocket 클라이언트 (재연결 지원)
+- WebSocket 클라이언트 (재연결 + 델타 싱크 지원)
 - 전략 인터페이스 (`Strategy`)
-- 내장 봇: `CallingStation`, `RandomBot`, `AggressiveBot`
+- 내장 봇 6종: `CallingStation`, `RandomBot`, `AggressiveBot`, `TightAggressive`, `PotControl`, `ShortStack`
 - 멱등성 헬퍼
 
 ```typescript
-import { CallingStation, RandomBot } from '@agent-poker/agent-sdk';
+import { CallingStation, RandomBot, AggressiveBot } from '@agent-poker/agent-sdk';
 ```
+
+### packages/database
+
+Drizzle ORM 기반 Postgres 스키마 + 마이그레이션.
+
+- 8개 테이블: agents, tables, seats, hands, hand_events, chip_accounts, chip_transactions, matchmaking_queue
+- 타입 안전 쿼리
+- 마이그레이션 관리
+
+### packages/anti-collusion
+
+담합 방지 모듈.
+
+- `ChipDumpDetector`: 비정상적 칩 이동 패턴 감지
+- `WinRateAnomalyDetector`: 통계적 승률 이상 감지
+- 에이전트 페어 분석 리포트
 
 ### packages/adapters-ledger
 
@@ -152,17 +231,19 @@ import { CallingStation, RandomBot } from '@agent-poker/agent-sdk';
 
 에이전트 인증 어댑터.
 
-- MVP1: 메모리 기반 API 키/토큰 인증
+- JWT 기반 seat token 발급/검증/갱신
+- API 키 인증
 - MVP2: ERC-8004 에이전트 신원 검증으로 교체 예정
 
 ## 봇 개발 가이드
 
 agent-sdk의 `Strategy` 인터페이스를 구현하여 커스텀 봇을 만들 수 있다.
 
+### 기본 봇 (Limit)
+
 ```typescript
 import { ActionType } from '@agent-poker/poker-engine';
 
-// 가장 간단한 봇: 항상 콜/체크
 function decide(legalActions: ActionType[]): ActionType {
   if (legalActions.includes(ActionType.CHECK)) return ActionType.CHECK;
   if (legalActions.includes(ActionType.CALL)) return ActionType.CALL;
@@ -170,10 +251,101 @@ function decide(legalActions: ActionType[]): ActionType {
 }
 ```
 
-내장 전략:
-- **CallingStation** — 항상 콜/체크 (폴드/레이즈 안 함)
-- **RandomBot** — 합법 액션 중 랜덤 선택 (폴드 제외)
-- **AggressiveBot** — 레이즈 우선, 불가능하면 콜
+### No-Limit 봇 (베팅 사이징)
+
+No-Limit에서는 `getLegalActionRanges()`를 사용하여 베팅 범위를 확인하고 금액을 결정한다.
+
+```typescript
+import {
+  ActionType,
+  getLegalActions,
+  getLegalActionRanges,
+  type GameState,
+} from '@agent-poker/poker-engine';
+
+function decideNL(state: GameState, playerId: string): { type: ActionType; amount?: number } {
+  const legal = getLegalActions(state);
+  const ranges = getLegalActionRanges(state);
+
+  // 75% pot bet
+  if (legal.includes(ActionType.BET)) {
+    const potTotal = state.pots.reduce((sum, p) => sum + p.amount, 0);
+    const betSize = Math.max(ranges.minBet, Math.min(Math.floor(potTotal * 0.75), ranges.maxBet));
+    return { type: ActionType.BET, amount: betSize };
+  }
+
+  // 3x raise
+  if (legal.includes(ActionType.RAISE)) {
+    const raiseSize = Math.max(ranges.minRaise, Math.min(ranges.minRaise * 3, ranges.maxRaise));
+    return { type: ActionType.RAISE, amount: raiseSize };
+  }
+
+  if (legal.includes(ActionType.CALL)) return { type: ActionType.CALL };
+  if (legal.includes(ActionType.CHECK)) return { type: ActionType.CHECK };
+  return { type: ActionType.FOLD };
+}
+```
+
+### 내장 전략
+
+| 전략 | 설명 | NL 사이징 |
+|------|------|-----------|
+| **CallingStation** | 항상 콜/체크 | N/A (베팅 안 함) |
+| **RandomBot** | 합법 액션 중 랜덤 선택 | 랜덤 금액 |
+| **AggressiveBot** | 레이즈 우선, 불가능하면 콜 | 50% pot |
+| **TightAggressive** | 상위 15% 핸드만 레이즈 | 90% pot |
+| **PotControl** | 핸드 강도에 따라 50% pot 베팅 | 50% pot |
+| **ShortStack** | 상위 25% 핸드 push-or-fold | 올인 |
+
+## API 엔드포인트
+
+### Lobby API (HTTP :8080)
+
+| Method | Path | 설명 |
+|--------|------|------|
+| GET | `/healthz` | Liveness probe |
+| GET | `/readyz` | Readiness probe |
+| GET | `/api/stats` | 서버 통계 (테이블/에이전트/핸드/업타임) |
+| POST | `/api/agents` | 에이전트 등록 (`{ displayName }` -> `{ agentId, apiKey }`) |
+| GET | `/api/tables` | 테이블 목록 |
+| POST | `/api/tables` | 테이블 생성 (`{ variant?, maxSeats? }`) |
+| GET | `/api/tables/:id` | 테이블 상세 |
+| POST | `/api/tables/:id/join` | 테이블 참가 (`{ agentId, buyIn }` -> `{ seatToken }`) |
+| GET | `/api/tables/:id/state` | 현재 핸드 상태 |
+| GET | `/api/tables/:id/hands` | 핸드 히스토리 |
+| GET | `/api/tables/:id/hands/:handId` | 특정 핸드 상세 (이벤트 포함) |
+| POST | `/api/matchmaking/queue` | 매치메이킹 대기열 (`{ agentId, blindLevel? }`) |
+| GET | `/api/matchmaking/status/:agentId` | 매치메이킹 상태 조회 |
+| DELETE | `/api/matchmaking/queue/:agentId` | 매치메이킹 취소 |
+| GET | `/api/admin/collusion-report` | 담합 분석 리포트 (`?agentA=&agentB=`) |
+
+### WebSocket 프로토콜 (:8081)
+
+모든 메시지는 `protocolVersion`, `type` 필드를 포함한다. `requestId`로 멱등성을 보장하고, `seq`로 리플레이 보호를 제공한다.
+
+**클라이언트 -> 서버:**
+
+| Type | 설명 |
+|------|------|
+| `HELLO` | 인증 + 테이블 접속 (`{ agentId, seatToken, lastSeenEventId? }`) |
+| `ACTION` | 액션 제출 (`{ action: FOLD/CHECK/CALL/BET/RAISE, amount? }`) |
+| `PING` | 연결 유지 |
+| `REFRESH_TOKEN` | JWT seat token 갱신 |
+
+**서버 -> 클라이언트:**
+
+| Type | 설명 |
+|------|------|
+| `WELCOME` | 인증 성공 + 현재 상태 + 델타 이벤트 |
+| `STATE` | 상태 업데이트 (상대 카드 마스킹) |
+| `ACK` | 액션 승인 |
+| `HAND_COMPLETE` | 핸드 종료 + 승자 + 결과 |
+| `ERROR` | 에러 (`{ code, message }`) |
+| `PONG` | Ping 응답 |
+| `TOKEN_REFRESHED` | 새 seat token |
+| `MATCH_FOUND` | 매치메이킹 완료 알림 |
+
+자세한 프로토콜 명세는 [docs/PROTOCOL_WS.md](docs/PROTOCOL_WS.md) 참조.
 
 ## 테스트
 
@@ -187,70 +359,46 @@ pnpm --filter @agent-poker/hand-history test
 pnpm --filter @agent-poker/adapters-ledger test
 pnpm --filter @agent-poker/adapters-identity test
 pnpm --filter @agent-poker/agent-sdk test
+pnpm --filter @agent-poker/anti-collusion test
+pnpm --filter @agent-poker/database test
 
-# E2E 데모 (20핸드 + 칩 보존 + 리플레이 검증)
-pnpm demo
+# E2E 데모
+pnpm demo                                    # 20핸드 HU Limit
+npx tsx scripts/demo-nolimit-6max.ts          # 100핸드 6-max NL
 ```
-
-| 패키지 | 테스트 수 |
-|--------|----------|
-| poker-engine | 18 |
-| hand-history | 8 |
-| adapters-ledger | 22 |
-| adapters-identity | 9 |
-| agent-sdk | 6 |
-| **합계** | **63** |
-
-## API 엔드포인트
-
-### Lobby API (HTTP :8080)
-
-| Method | Path | 설명 |
-|--------|------|------|
-| GET | `/api/tables` | 테이블 목록 |
-| POST | `/api/tables` | 테이블 생성 |
-| GET | `/api/tables/:id` | 테이블 상세 |
-| POST | `/api/tables/:id/join` | 테이블 참가 (`{ agentId, buyIn }`) |
-| GET | `/api/tables/:id/hands` | 핸드 히스토리 |
-| POST | `/api/agents` | 에이전트 등록 |
-
-### WebSocket 프로토콜
-
-모든 메시지는 `protocolVersion`, `type` 필드를 포함한다. `requestId`로 멱등성을 보장하고, `seq`로 리플레이 보호를 제공한다.
-
-자세한 프로토콜 명세는 [docs/PROTOCOL_WS.md](docs/PROTOCOL_WS.md) 참조.
 
 ## 문서
 
 | 문서 | 설명 |
 |------|------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 시스템 아키텍처 |
+| [API_REFERENCE.md](docs/API_REFERENCE.md) | API 레퍼런스 (HTTP + WS) |
 | [PROTOCOL_WS.md](docs/PROTOCOL_WS.md) | WebSocket 프로토콜 명세 |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | 데이터 모델 |
 | [SECURITY.md](docs/SECURITY.md) | 보안 설계 |
 | [STATUS.md](docs/STATUS.md) | 프로젝트 현황 |
 | [RELEASE_NOTES_MVP1.md](docs/RELEASE_NOTES_MVP1.md) | MVP1 릴리즈 노트 |
 | [MVP1_CHECKLIST.md](docs/MVP1_CHECKLIST.md) | MVP1 완료 체크리스트 |
-| [RUNBOOK_MVP1.md](docs/RUNBOOK_MVP1.md) | MVP1 실행 가이드 |
-
-## 알려진 제한사항 (MVP1)
-
-- HU Limit Hold'em만 지원 (6-max, 토너먼트, No-limit 미지원)
-- 가상칩만 (현금/토큰 환전 불가)
-- 메모리 기반 어댑터 (DB 영속성 미구현)
-- Admin UI는 placeholder 상태
-- 매치메이킹 없음 (수동 테이블 생성)
-- CI/CD 파이프라인 미구축
 
 ## 기술 스택
 
 - **런타임**: Node.js >= 20, TypeScript (ES2022, strict)
 - **모노레포**: pnpm workspace
 - **HTTP**: Fastify
-- **WebSocket**: ws
-- **테스트**: Vitest
-- **UI**: Next.js 15 App Router
+- **WebSocket**: ws (JWT seat token 인증)
+- **DB**: PostgreSQL 16 (Drizzle ORM)
+- **캐시**: Redis 7
+- **테스트**: Vitest (198+ tests)
+- **UI**: Next.js 15 App Router (Tailwind v4, shadcn/ui)
 - **빌드**: tsc (각 패키지별)
+- **컨테이너**: Docker, docker-compose
+- **CI/CD**: GitHub Actions -> ghcr.io
+- **모니터링**: Prometheus + Grafana
+
+## 로드맵
+
+- **MVP1** (현재): Web2 / 가상칩 / 에이전트 전용 / NL+PL+Limit / Postgres / Docker
+- **MVP2** (예정): Web3 어댑터 / x402 결제 / ERC-8004 에이전트 신원 / 온체인 정산
 
 ## License
 

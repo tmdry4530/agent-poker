@@ -1,4 +1,4 @@
-import type { TableInfo, HandSummary } from "./types";
+import type { TableInfo, HandSummary, AgentInfo, AgentDetail, MatchmakingStatus } from "./types";
 
 const API_BASE =
   typeof window !== "undefined"
@@ -23,8 +23,22 @@ export async function getTable(id: string): Promise<TableInfo> {
   return fetchApi<TableInfo>(`/api/tables/${id}`);
 }
 
-export async function createTable(): Promise<TableInfo> {
-  return fetchApi<TableInfo>("/api/tables", { method: "POST", body: JSON.stringify({}) });
+export interface CreateTableParams {
+  variant?: string;
+  smallBlind?: number;
+  bigBlind?: number;
+  maxSeats?: number;
+  minBuyInBB?: number;
+  maxBuyInBB?: number;
+  anteEnabled?: boolean;
+  anteAmount?: number;
+}
+
+export async function createTable(params: CreateTableParams = {}): Promise<TableInfo> {
+  return fetchApi<TableInfo>("/api/tables", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 export async function getHands(tableId: string): Promise<HandSummary[]> {
@@ -44,4 +58,47 @@ export async function getHandDetail(tableId: string, handId: string) {
 
 export async function getLiveState(tableId: string) {
   return fetchApi<{ state: any }>(`/api/tables/${tableId}/state`).then(d => d.state);
+}
+
+// Agent APIs
+export async function getAgents(): Promise<AgentInfo[]> {
+  const data = await fetchApi<{ agents: AgentInfo[] }>("/api/agents");
+  return data.agents ?? [];
+}
+
+export async function getAgent(id: string): Promise<AgentDetail> {
+  return fetchApi<AgentDetail>(`/api/agents/${id}`);
+}
+
+export async function banAgent(id: string): Promise<void> {
+  await fetchApi<unknown>(`/api/agents/${id}/ban`, { method: "POST" });
+}
+
+export async function unbanAgent(id: string): Promise<void> {
+  await fetchApi<unknown>(`/api/agents/${id}/unban`, { method: "POST" });
+}
+
+// System APIs
+export async function getReadyz(): Promise<{ status: string; uptime?: number; [key: string]: unknown }> {
+  return fetchApi<{ status: string; uptime?: number }>("/readyz");
+}
+
+export async function getStats(): Promise<Record<string, unknown>> {
+  return fetchApi<Record<string, unknown>>("/api/stats");
+}
+
+export async function getAdminErrors(): Promise<{ errors: Array<{ message: string; timestamp: string; [key: string]: unknown }> }> {
+  return fetchApi<{ errors: Array<{ message: string; timestamp: string }> }>("/api/admin/errors");
+}
+
+// Matchmaking APIs
+export async function getMatchmakingStatus(): Promise<MatchmakingStatus> {
+  return fetchApi<MatchmakingStatus>("/api/matchmaking/status");
+}
+
+export async function triggerManualMatch(blindLevel: string): Promise<{ tableId: string }> {
+  return fetchApi<{ tableId: string }>("/api/matchmaking/match", {
+    method: "POST",
+    body: JSON.stringify({ blindLevel }),
+  });
 }

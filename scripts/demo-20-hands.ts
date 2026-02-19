@@ -11,14 +11,36 @@ import {
   createInitialState,
   applyAction,
   getLegalActions,
+  getLegalActionRanges,
   createSeededRng,
   advanceDealer,
   ActionType,
+  BettingMode,
   type GameState,
   type GameEvent,
   type PlayerSetup,
+  type GameConfig,
   DEFAULT_CONFIG,
+  DEFAULT_NL_CONFIG,
+  DEFAULT_PL_CONFIG,
 } from '@agent-poker/poker-engine';
+
+// Parse mode from command line: --mode=limit|nolimit|potlimit
+const args = process.argv.slice(2);
+const modeArg = args.find((a) => a.startsWith('--mode='));
+const mode = modeArg ? modeArg.split('=')[1] : 'limit';
+
+let config: GameConfig;
+switch (mode) {
+  case 'nolimit':
+    config = DEFAULT_NL_CONFIG;
+    break;
+  case 'potlimit':
+    config = DEFAULT_PL_CONFIG;
+    break;
+  default:
+    config = DEFAULT_CONFIG;
+}
 
 const NUM_HANDS = 20;
 const STARTING_CHIPS = 200;
@@ -36,24 +58,62 @@ interface HandRecord {
 
 // ── Bot strategies ──────────────────────────────────────────
 
-function callingStationAction(legalActions: ActionType[]): ActionType {
-  if (legalActions.includes(ActionType.CHECK)) return ActionType.CHECK;
-  if (legalActions.includes(ActionType.CALL)) return ActionType.CALL;
-  return ActionType.FOLD;
+function callingStationAction(
+  legalActions: ActionType[],
+  state: GameState
+): { type: ActionType; amount?: number } {
+  if (legalActions.includes(ActionType.CHECK)) return { type: ActionType.CHECK };
+  if (legalActions.includes(ActionType.CALL)) return { type: ActionType.CALL };
+  return { type: ActionType.FOLD };
 }
 
-function randomAction(legalActions: ActionType[], rng: () => number): ActionType {
+function randomAction(
+  legalActions: ActionType[],
+  state: GameState,
+  rng: () => number
+): { type: ActionType; amount?: number } {
   const options = legalActions.filter((a) => a !== ActionType.FOLD);
-  if (options.length === 0) return ActionType.FOLD;
-  return options[Math.floor(rng() * options.length)]!;
+  if (options.length === 0) return { type: ActionType.FOLD };
+  const chosen = options[Math.floor(rng() * options.length)]!;
+
+  if (
+    (chosen === ActionType.BET || chosen === ActionType.RAISE) &&
+    (config.bettingMode === BettingMode.NO_LIMIT || config.bettingMode === BettingMode.POT_LIMIT)
+  ) {
+    const ranges = getLegalActionRanges(state);
+    const amount =
+      chosen === ActionType.BET
+        ? Math.floor(ranges.minBet + rng() * (ranges.maxBet - ranges.minBet))
+        : Math.floor(ranges.minRaise + rng() * (ranges.maxRaise - ranges.minRaise));
+    return { type: chosen, amount };
+  }
+
+  return { type: chosen };
 }
 
-function aggressiveAction(legalActions: ActionType[]): ActionType {
-  if (legalActions.includes(ActionType.RAISE)) return ActionType.RAISE;
-  if (legalActions.includes(ActionType.BET)) return ActionType.BET;
-  if (legalActions.includes(ActionType.CALL)) return ActionType.CALL;
-  if (legalActions.includes(ActionType.CHECK)) return ActionType.CHECK;
-  return ActionType.FOLD;
+function aggressiveAction(
+  legalActions: ActionType[],
+  state: GameState
+): { type: ActionType; amount?: number } {
+  if (legalActions.includes(ActionType.RAISE)) {
+    if (config.bettingMode === BettingMode.NO_LIMIT || config.bettingMode === BettingMode.POT_LIMIT) {
+      const ranges = getLegalActionRanges(state);
+      const amount = Math.floor((ranges.minRaise + ranges.maxRaise) / 2);
+      return { type: ActionType.RAISE, amount };
+    }
+    return { type: ActionType.RAISE };
+  }
+  if (legalActions.includes(ActionType.BET)) {
+    if (config.bettingMode === BettingMode.NO_LIMIT || config.bettingMode === BettingMode.POT_LIMIT) {
+      const ranges = getLegalActionRanges(state);
+      const amount = Math.floor((ranges.minBet + ranges.maxBet) / 2);
+      return { type: ActionType.BET, amount };
+    }
+    return { type: ActionType.BET };
+  }
+  if (legalActions.includes(ActionType.CALL)) return { type: ActionType.CALL };
+  if (legalActions.includes(ActionType.CHECK)) return { type: ActionType.CHECK };
+  return { type: ActionType.FOLD };
 }
 
 // ── Main ────────────────────────────────────────────────────
@@ -66,7 +126,7 @@ const BOTS = [
 ];
 
 async function main() {
-  console.log(`=== Agent Poker MVP1 — E2E Demo (${NUM_PLAYERS}-player) ===`);
+  console.log(`=== Agent Poker MVP1 — E2E Demo (${NUM_PLAYERS}-player, ${config.bettingMode}) ===`);
   console.log(`Hands: ${NUM_HANDS} | Starting chips: ${STARTING_CHIPS} each`);
   console.log();
 
@@ -107,7 +167,7 @@ async function main() {
     const chipsBefore = activeBots.map((_, i) => chips[i]!);
 
     const { state: initState, events: initEvents } = createInitialState(
-      handId, playerSetups, dealerSeatIndex, rng, DEFAULT_CONFIG,
+      handId, playerSetups, dealerSeatIndex, rng, config,
     );
 
     let state = initState;
@@ -120,19 +180,19 @@ async function main() {
       const legal = getLegalActions(state);
 
       const bot = activeBots.find((b) => b.id === activePlayer.id)!;
-      let action: ActionType;
+      let action: { type: ActionType; amount?: number };
       switch (bot.strategy) {
         case 'calling-station':
-          action = callingStationAction(legal);
+          action = callingStationAction(legal, state);
           break;
         case 'aggressive':
-          action = aggressiveAction(legal);
+          action = aggressiveAction(legal, state);
           break;
         default:
-          action = randomAction(legal, botRng);
+          action = randomAction(legal, state, botRng);
       }
 
-      const result = applyAction(state, activePlayer.id, { type: action });
+      const result = applyAction(state, activePlayer.id, action, rng);
       state = result.state;
       allEvents.push(...result.events);
       moves++;
@@ -206,7 +266,7 @@ async function main() {
     const activeSeats = playerSetups.map((p) => p.seatIndex);
     if (!activeSeats.includes(r_dealer)) r_dealer = activeSeats[0]!;
 
-    const { state: initState } = createInitialState(handId, playerSetups, r_dealer, rng, DEFAULT_CONFIG);
+    const { state: initState } = createInitialState(handId, playerSetups, r_dealer, rng, config);
 
     let state = initState;
     let moves = 0;
@@ -214,18 +274,18 @@ async function main() {
       const activePlayer = state.players.find((p) => p.seatIndex === state.activePlayerSeatIndex)!;
       const legal = getLegalActions(state);
       const bot = activeBots.find((b) => b.id === activePlayer.id)!;
-      let action: ActionType;
+      let action: { type: ActionType; amount?: number };
       switch (bot.strategy) {
         case 'calling-station':
-          action = callingStationAction(legal);
+          action = callingStationAction(legal, state);
           break;
         case 'aggressive':
-          action = aggressiveAction(legal);
+          action = aggressiveAction(legal, state);
           break;
         default:
-          action = randomAction(legal, botRng2);
+          action = randomAction(legal, state, botRng2);
       }
-      state = applyAction(state, activePlayer.id, { type: action }).state;
+      state = applyAction(state, activePlayer.id, action, rng).state;
       moves++;
       if (moves > 200) break;
     }

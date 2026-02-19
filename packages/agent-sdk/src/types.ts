@@ -37,6 +37,15 @@ export interface VisibleGameState {
   potAmount: number;
   isMyTurn: boolean;
   legalActions: string[];
+  /** Betting mode: LIMIT, NO_LIMIT, or POT_LIMIT */
+  bettingMode?: string;
+  /** Action ranges for NL/PL modes */
+  actionRanges?: {
+    minBet: number;
+    maxBet: number;
+    minRaise: number;
+    maxRaise: number;
+  };
   // HU backward-compat (deprecated)
   opponentId?: string | undefined;
   opponentChips?: number | undefined;

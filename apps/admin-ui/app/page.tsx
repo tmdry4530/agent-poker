@@ -2,40 +2,60 @@
 
 import { useCallback } from "react";
 import Link from "next/link";
-import { Table2, Hash, Bot, Plus, UserPlus } from "lucide-react";
+import { Table2, Hash, Bot, Plus, UserPlus, Coins } from "lucide-react";
 import { useApiData } from "@/lib/hooks";
+import { useDashboardWs } from "@/lib/use-dashboard-ws";
 import { getTables } from "@/lib/api";
 import { StatCard } from "@/components/stat-card";
+import { WsStatusIndicator } from "@/components/ws-status-indicator";
 import { TableStatusBadge } from "@/components/table-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatTimestamp } from "@/lib/utils";
+import { formatTimestamp, formatChips } from "@/lib/utils";
 
 export default function DashboardPage() {
   const fetcher = useCallback(() => getTables(), []);
-  const { data: tables, loading, error } = useApiData(fetcher, 5000);
+  const { data: tables, loading, error } = useApiData(fetcher, 10000);
+  const { stats, wsStatus } = useDashboardWs();
 
-  const activeTables = tables?.filter((t) => t.status !== "closed").length ?? 0;
-  const totalHands = tables?.reduce((sum, t) => sum + t.handsPlayed, 0) ?? 0;
-  const uniqueAgents = new Set(
-    tables?.flatMap((t) => t.seats.filter((s) => s.agentId).map((s) => s.agentId)) ?? [],
-  ).size;
+  // Merge: prefer WS live data, fall back to HTTP polling data
+  const activeTables =
+    wsStatus === "connected"
+      ? stats.activeTables
+      : (tables?.filter((t) => t.status !== "closed").length ?? 0);
+  const connectedAgents =
+    wsStatus === "connected"
+      ? stats.connectedAgents
+      : new Set(
+          tables?.flatMap((t) => t.seats.filter((s) => s.agentId).map((s) => s.agentId)) ?? [],
+        ).size;
+  const handsPerMinute = stats.handsPerMinute;
+  const totalChipsInPlay =
+    wsStatus === "connected"
+      ? stats.totalChipsInPlay
+      : (tables?.reduce(
+          (sum, t) => sum + t.seats.reduce((s, seat) => s + seat.chips, 0),
+          0,
+        ) ?? 0);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Agent Poker platform overview</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Agent Poker platform overview</p>
+        </div>
+        <WsStatusIndicator status={wsStatus} />
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+      {loading && wsStatus !== "connected" ? (
+        <div className="grid gap-4 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[120px]" />
           ))}
         </div>
-      ) : error ? (
+      ) : error && wsStatus !== "connected" ? (
         <Card className="border-destructive/50">
           <CardContent className="pt-6">
             <p className="text-sm text-destructive">Failed to connect to lobby-api: {error}</p>
@@ -46,10 +66,31 @@ export default function DashboardPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard title="Active Tables" value={activeTables} icon={Table2} description={`${tables?.length ?? 0} total`} />
-            <StatCard title="Total Hands" value={totalHands} icon={Hash} description="Across all tables" />
-            <StatCard title="Agents" value={uniqueAgents} icon={Bot} description="Unique agents seated" />
+          <div className="grid gap-4 md:grid-cols-4">
+            <StatCard
+              title="Active Tables"
+              value={activeTables}
+              icon={Table2}
+              description={`${tables?.length ?? 0} total`}
+            />
+            <StatCard
+              title="Connected Agents"
+              value={connectedAgents}
+              icon={Bot}
+              description="Currently seated"
+            />
+            <StatCard
+              title="Hands / Min"
+              value={handsPerMinute}
+              icon={Hash}
+              description="Rolling 5-min avg"
+            />
+            <StatCard
+              title="Chips in Play"
+              value={formatChips(totalChipsInPlay)}
+              icon={Coins}
+              description="Total across tables"
+            />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">

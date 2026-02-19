@@ -26,16 +26,17 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const { LOBBY_API_BASE_URL, ADMIN_API_KEY } = getEnv();
   try {
+    const body = await request.json().catch(() => ({}));
     const res = await fetch(`${LOBBY_API_BASE_URL}/api/tables`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(ADMIN_API_KEY ? { "X-ADMIN-API-KEY": ADMIN_API_KEY } : {}),
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       return NextResponse.json(

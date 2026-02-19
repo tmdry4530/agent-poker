@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alert-rules.yml
+
+scrape_configs:
+  - job_name: lobby-api
+    metrics_path: /api/stats
+    static_configs:
+      - targets: ['lobby-api:8080']
+    scrape_interval: 15s
+
+  - job_name: game-server
+    metrics_path: /api/stats
+    static_configs:
+      - targets: ['game-server:8081']
+    scrape_interval: 15s

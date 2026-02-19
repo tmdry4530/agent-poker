@@ -1,0 +1,48 @@
+# --- Build stage ---
+FROM node:20-slim AS build
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Copy workspace root manifests
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+
+# Copy all package manifests (for dependency resolution)
+COPY apps/admin-ui/package.json apps/admin-ui/
+COPY packages/poker-engine/package.json packages/poker-engine/
+COPY packages/hand-history/package.json packages/hand-history/
+COPY packages/agent-sdk/package.json packages/agent-sdk/
+COPY packages/database/package.json packages/database/
+COPY packages/adapters-identity/package.json packages/adapters-identity/
+COPY packages/adapters-ledger/package.json packages/adapters-ledger/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy full source (Next.js needs all files for build)
+COPY packages/ packages/
+COPY apps/admin-ui/ apps/admin-ui/
+
+# Build workspace packages then Next.js standalone
+RUN pnpm -r build
+
+# --- Runtime stage ---
+FROM node:20-slim AS runtime
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+WORKDIR /app
+
+# Copy Next.js standalone output
+COPY --from=build /app/apps/admin-ui/.next/standalone ./
+COPY --from=build /app/apps/admin-ui/.next/static ./apps/admin-ui/.next/static/
+COPY --from=build /app/apps/admin-ui/public ./apps/admin-ui/public/
+
+USER appuser
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+EXPOSE 3000
+
+CMD ["node", "apps/admin-ui/server.js"]

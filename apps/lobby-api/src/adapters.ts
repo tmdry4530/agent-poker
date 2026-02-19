@@ -12,9 +12,15 @@ export interface LedgerAdapter {
   transfer(from: string, to: string, amount: number): Promise<void>;
 }
 
+export interface AuthResult {
+  agentId: string;
+  displayName: string;
+}
+
 export interface IdentityProvider {
   verify(agentId: string, apiKey: string): Promise<boolean>;
   create(displayName: string): Promise<{ agentId: string; apiKey: string }>;
+  authenticate(apiKey: string): Promise<AuthResult | null>;
 }
 
 /**
@@ -117,6 +123,15 @@ function createMemoryIdentity(): IdentityProvider {
       const apiKey = `ak_${Math.random().toString(36).slice(2, 18)}`;
       agents.set(agentId, { apiKey, displayName });
       return { agentId, apiKey };
+    },
+
+    async authenticate(apiKey: string): Promise<AuthResult | null> {
+      for (const [agentId, agent] of agents) {
+        if (agent.apiKey === apiKey) {
+          return { agentId, displayName: agent.displayName };
+        }
+      }
+      return null;
     },
   };
 }

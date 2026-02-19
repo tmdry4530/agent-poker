@@ -1,7 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import crypto from 'node:crypto';
+import { signSeatToken } from '@agent-poker/game-server';
 import { logger } from './logger.js';
 import { MatchmakingQueue, BLIND_CONFIGS, type BlindLevel } from './matchmaking.js';
+import {
+  CreateTableBodySchema,
+  JoinTableBodySchema,
+  MatchmakingQueueBodySchema,
+  CreateAgentBodySchema,
+  formatZodError,
+} from './schemas.js';
+import {
+  ChipDumpDetector,
+  WinRateAnomalyDetector,
+  analyzeAgentPair,
+} from '@agent-poker/anti-collusion';
 
 interface Deps {
   gameServer?: any;
@@ -12,6 +25,10 @@ interface Deps {
 const startTime = Date.now();
 let handCountSinceStart = 0;
 let matchmakingQueue: MatchmakingQueue;
+
+// Anti-collusion detectors (singleton, shared across routes)
+const chipDumpDetector = new ChipDumpDetector();
+const winRateDetector = new WinRateAnomalyDetector();
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // Initialize matchmaking queue with match callback
@@ -125,22 +142,28 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return table.getInfo();
   });
 
-  app.post<{ Body: { variant?: string; maxSeats?: number } }>('/api/tables', async (req) => {
+  app.post<{ Body: { variant?: string; maxSeats?: number } }>('/api/tables', async (req, reply) => {
+    const parseResult = CreateTableBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return reply.status(400).send(formatZodError(parseResult.error));
+    }
+    const body = parseResult.data;
+
     const server = deps.gameServer;
     if (!server) throw new Error('No game server');
     const { TableActor } = await import('@agent-poker/game-server');
-    const body = req.body as { variant?: string; maxSeats?: number } | undefined;
     const tableId = `tbl_${crypto.randomUUID().slice(0, 8)}`;
+    const maxSeats = body.maxSeats ?? 8;
     const table = new TableActor({
       tableId,
-      maxSeats: body?.maxSeats ?? 8,
+      maxSeats,
       onHandComplete: (_tid, handId, events, state) => {
         handCountSinceStart++;
         logger.info({ handId, winners: state.winners }, 'Hand complete');
       },
     });
     server.registerTable(table);
-    return { tableId, status: 'open', maxSeats: body?.maxSeats ?? 8 };
+    return { tableId, status: 'open', maxSeats };
   });
 
   // ── Join table ────────────────────────────────────────
@@ -148,18 +171,19 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Params: { id: string }; Body: { agentId: string; buyIn: number } }>(
     '/api/tables/:id/join',
     async (req, reply) => {
+      const parseResult = JoinTableBodySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return reply.status(400).send(formatZodError(parseResult.error));
+      }
+      const body = parseResult.data;
+
       const server = deps.gameServer;
       if (!server) return reply.status(500).send({ error: 'No game server' });
       const table = server.getTable(req.params.id);
       if (!table) return reply.status(404).send({ error: 'Table not found' });
 
-      const body = req.body as { agentId?: string; buyIn?: number } | undefined;
-      if (!body?.agentId || !body?.buyIn) {
-        return reply.status(400).send({ error: 'Missing agentId or buyIn' });
-      }
-
       try {
-        const seatToken = `st_${crypto.randomUUID().slice(0, 12)}`;
+        const seatToken = signSeatToken({ agentId: body.agentId, tableId: req.params.id });
         const seat = table.addSeat(body.agentId, seatToken, body.buyIn);
         return { seatToken, seatIndex: seat.seatIndex, tableId: req.params.id };
       } catch (err) {
@@ -234,18 +258,14 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.post<{ Body: { agentId: string; variant?: string; blindLevel?: BlindLevel } }>(
     '/api/matchmaking/queue',
     async (req, reply) => {
-      const body = req.body as { agentId?: string; variant?: string; blindLevel?: BlindLevel } | undefined;
-
-      if (!body?.agentId) {
-        return reply.status(400).send({ error: 'Missing agentId' });
+      const parseResult = MatchmakingQueueBodySchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return reply.status(400).send(formatZodError(parseResult.error));
       }
+      const body = parseResult.data;
 
       const variant = body.variant ?? 'LHE';
       const blindLevel = body.blindLevel ?? 'low';
-
-      if (!BLIND_CONFIGS[blindLevel]) {
-        return reply.status(400).send({ error: 'Invalid blindLevel' });
-      }
 
       try {
         matchmakingQueue.enqueue(body.agentId, variant, blindLevel);
@@ -274,11 +294,60 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ── Agents (simplified for MVP1) ─────────────────────
 
-  app.post<{ Body: { displayName: string } }>('/api/agents', async (req) => {
-    const body = req.body as { displayName?: string } | undefined;
-    const displayName = body?.displayName ?? 'unnamed';
+  app.post<{ Body: { displayName: string } }>('/api/agents', async (req, reply) => {
+    const parseResult = CreateAgentBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return reply.status(400).send(formatZodError(parseResult.error));
+    }
+    const body = parseResult.data;
+
     const agentId = `agent_${crypto.randomUUID().slice(0, 8)}`;
     const apiKey = `ak_${crypto.randomBytes(16).toString('hex')}`;
-    return { agentId, apiKey, displayName };
+    return { agentId, apiKey, displayName: body.displayName };
   });
+
+  // ── Admin: Collusion Report ─────────────────────────────
+
+  app.get<{ Querystring: { agentA?: string; agentB?: string } }>(
+    '/api/admin/collusion-report',
+    async (req, reply) => {
+      const query = req.query as { agentA?: string; agentB?: string };
+
+      // If specific pair requested, analyze that pair
+      if (query.agentA && query.agentB) {
+        const report = analyzeAgentPair(chipDumpDetector, winRateDetector, query.agentA, query.agentB);
+        return { reports: [report] };
+      }
+
+      // Otherwise, get all known agents from tables and analyze all pairs
+      const server = deps.gameServer;
+      if (!server) {
+        return { reports: [] };
+      }
+
+      const agentIds = new Set<string>();
+      const tables = server.getAllTables();
+      for (const table of tables) {
+        const seats = table.getSeats();
+        for (const seat of seats) {
+          if (seat.status === 'seated') {
+            agentIds.add(seat.agentId);
+          }
+        }
+      }
+
+      const agents = Array.from(agentIds);
+      const reports = [];
+      for (let i = 0; i < agents.length; i++) {
+        for (let j = i + 1; j < agents.length; j++) {
+          const report = analyzeAgentPair(chipDumpDetector, winRateDetector, agents[i]!, agents[j]!);
+          if (report.riskScore > 0 || report.handsAnalyzed > 0) {
+            reports.push(report);
+          }
+        }
+      }
+
+      return { reports };
+    },
+  );
 }

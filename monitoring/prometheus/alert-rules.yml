@@ -1,0 +1,20 @@
+groups:
+  - name: agent-poker-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_errors_total[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error rate exceeds 5%"
+          description: "{{ $labels.job }} error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: NoHandsPlayed
+        expr: increase(poker_hands_completed_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No hands completed in 10 minutes"
+          description: "{{ $labels.job }} has not completed any poker hands in the last 10 minutes."
