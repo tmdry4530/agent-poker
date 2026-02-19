@@ -18,8 +18,17 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint ok'"
   },
+  "dependencies": {
+    "@agent-poker/database": "workspace:*",
+    "bcrypt": "^5.1.1",
+    "drizzle-orm": "^0.36.4"
+  },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "pg-mem": "^3.0.3",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

@@ -9,24 +9,6 @@ function rankValue(r: Rank): number {
   return RANK_VALUE[r];
 }
 
-/** Generate all C(n, k) combinations. */
-function combinations<T>(arr: T[], k: number): T[][] {
-  if (k === 0) return [[]];
-  if (arr.length < k) return [];
-  const result: T[][] = [];
-  const first = arr[0]!;
-  const rest = arr.slice(1);
-  // combos that include first
-  for (const combo of combinations(rest, k - 1)) {
-    result.push([first, ...combo]);
-  }
-  // combos that exclude first
-  for (const combo of combinations(rest, k)) {
-    result.push(combo);
-  }
-  return result;
-}
-
 /** Evaluate exactly 5 cards. */
 function evaluate5(cards: Card[]): HandEvaluation {
   const sorted = [...cards].sort((a, b) => rankValue(b.rank) - rankValue(a.rank));
@@ -94,15 +76,26 @@ function rankName(v: number): string {
 
 /** Evaluate the best 5-card hand from 7 cards (2 hole + 5 community). */
 export function evaluateBestHand(holeCards: Card[], communityCards: Card[]): HandEvaluation {
-  const allCards = [...holeCards, ...communityCards];
-  const combos = combinations(allCards, 5);
+  const cards = [...holeCards, ...communityCards];
+  const n = cards.length;
   let best: HandEvaluation | null = null;
-  for (const combo of combos) {
-    const evaluation = evaluate5(combo);
-    if (!best || compareHands(evaluation, best) > 0) {
-      best = evaluation;
+
+  // Iterative C(n, 5) — 5 nested loops avoid recursive allocation overhead
+  for (let a = 0; a < n - 4; a++) {
+    for (let b = a + 1; b < n - 3; b++) {
+      for (let c = b + 1; c < n - 2; c++) {
+        for (let d = c + 1; d < n - 1; d++) {
+          for (let e = d + 1; e < n; e++) {
+            const evaluation = evaluate5([cards[a]!, cards[b]!, cards[c]!, cards[d]!, cards[e]!]);
+            if (!best || compareHands(evaluation, best) > 0) {
+              best = evaluation;
+            }
+          }
+        }
+      }
     }
   }
+
   return best!;
 }
 

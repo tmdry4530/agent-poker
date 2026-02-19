@@ -58,23 +58,56 @@ export interface Pot {
   eligible: string[]; // player ids
 }
 
+// ── Betting mode ────────────────────────────────────────────
+export enum BettingMode {
+  LIMIT = 'LIMIT',
+  NO_LIMIT = 'NO_LIMIT',
+  POT_LIMIT = 'POT_LIMIT',
+}
+
 // ── Game config ─────────────────────────────────────────────
 export interface GameConfig {
+  bettingMode: BettingMode;
   smallBlind: number;
   bigBlind: number;
-  /** Fixed-limit: small bet = big blind, big bet = 2x big blind */
+  /** Fixed-limit only: small bet = big blind, big bet = 2x big blind */
   smallBet: number;
   bigBet: number;
-  maxRaisesPerStreet: number; // typically 4 (bet + 3 raises) for limit
+  ante: number;
+  maxRaisesPerStreet: number; // typically 4 for limit, 0 = unlimited (NL/PL)
   maxPlayers: number; // 2-8, default 8
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
+  bettingMode: BettingMode.LIMIT,
   smallBlind: 1,
   bigBlind: 2,
   smallBet: 2,
   bigBet: 4,
+  ante: 0,
   maxRaisesPerStreet: 4,
+  maxPlayers: 8,
+};
+
+export const DEFAULT_NL_CONFIG: GameConfig = {
+  bettingMode: BettingMode.NO_LIMIT,
+  smallBlind: 1,
+  bigBlind: 2,
+  smallBet: 0,
+  bigBet: 0,
+  ante: 0,
+  maxRaisesPerStreet: 0, // unlimited
+  maxPlayers: 8,
+};
+
+export const DEFAULT_PL_CONFIG: GameConfig = {
+  bettingMode: BettingMode.POT_LIMIT,
+  smallBlind: 1,
+  bigBlind: 2,
+  smallBet: 0,
+  bigBet: 0,
+  ante: 0,
+  maxRaisesPerStreet: 0, // unlimited
   maxPlayers: 8,
 };
 
@@ -90,6 +123,7 @@ export interface GameState {
   deck: Card[]; // remaining deck (cards dealt are removed)
   pots: Pot[];
   betsThisStreet: number; // how many bets/raises this street (for cap)
+  lastRaiseSize: number; // NL/PL: size of the last raise increment (for min-raise)
   isHandComplete: boolean;
   winners?: string[];
   resultSummary?: HandResult;
@@ -126,6 +160,7 @@ export interface HandEvaluation {
 // ── Events ──────────────────────────────────────────────────
 export enum GameEventType {
   HAND_START = 'HAND_START',
+  ANTES_POSTED = 'ANTES_POSTED',
   BLINDS_POSTED = 'BLINDS_POSTED',
   HOLE_CARDS_DEALT = 'HOLE_CARDS_DEALT',
   COMMUNITY_CARDS_DEALT = 'COMMUNITY_CARDS_DEALT',

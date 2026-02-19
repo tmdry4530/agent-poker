@@ -2,12 +2,16 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { ActionType, type PlayerAction, PokerError } from '@agent-poker/poker-engine';
 import { TableActor } from './table-actor.js';
 import { PROTOCOL_VERSION, type WsEnvelope } from './types.js';
+import { logger } from './logger.js';
+import { EventRingBuffer } from './event-ring-buffer.js';
+import { RateLimiter } from './rate-limiter.js';
 
 interface ConnectedClient {
   ws: WebSocket;
   agentId: string;
   tableId: string;
   seatToken: string;
+  lastSeenEventId?: number;
 }
 
 export class GameServerWs {
@@ -15,6 +19,21 @@ export class GameServerWs {
   private tables = new Map<string, TableActor>();
   private clients = new Map<WebSocket, ConnectedClient>();
   private agentToWs = new Map<string, WebSocket>(); // agentId -> ws (latest)
+  private agentToTables = new Map<string, Set<string>>(); // agentId -> Set<tableId> (multi-table support)
+  private eventBuffers = new Map<string, EventRingBuffer>(); // tableId -> buffer
+  private rateLimiter = new RateLimiter();
+  private disconnectGraceMs: number;
+
+  constructor() {
+    this.disconnectGraceMs = parseInt(process.env['DISCONNECT_GRACE_MS'] ?? '60000', 10);
+  }
+
+  /**
+   * Get all table IDs that an agent is seated at.
+   */
+  getAgentTables(agentId: string): string[] {
+    return Array.from(this.agentToTables.get(agentId) ?? []);
+  }
 
   getTable(tableId: string): TableActor | undefined {
     return this.tables.get(tableId);
@@ -22,6 +41,10 @@ export class GameServerWs {
 
   registerTable(table: TableActor): void {
     this.tables.set(table.tableId, table);
+    // Create event buffer for this table
+    if (!this.eventBuffers.has(table.tableId)) {
+      this.eventBuffers.set(table.tableId, new EventRingBuffer());
+    }
   }
 
   getAllTables(): TableActor[] {
@@ -47,7 +70,7 @@ export class GameServerWs {
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString()) as WsEnvelope;
-        this.handleMessage(ws, msg);
+        void this.handleMessage(ws, msg);
       } catch (err) {
         this.sendError(ws, 'INTERNAL', 'Invalid JSON');
       }
@@ -56,13 +79,22 @@ export class GameServerWs {
     ws.on('close', () => {
       const client = this.clients.get(ws);
       if (client) {
-        this.agentToWs.delete(client.agentId);
+        // Remove from agent → tables mapping
+        const tables = this.agentToTables.get(client.agentId);
+        if (tables) {
+          tables.delete(client.tableId);
+          if (tables.size === 0) {
+            this.agentToTables.delete(client.agentId);
+            this.agentToWs.delete(client.agentId);
+          }
+        }
         this.clients.delete(ws);
+        logger.info({ agentId: client.agentId, tableId: client.tableId }, 'Client disconnected');
       }
     });
   }
 
-  private handleMessage(ws: WebSocket, msg: WsEnvelope): void {
+  private async handleMessage(ws: WebSocket, msg: WsEnvelope): Promise<void> {
     if (msg.protocolVersion !== PROTOCOL_VERSION) {
       this.sendError(ws, 'PROTOCOL_MISMATCH', `Expected protocol version ${PROTOCOL_VERSION}`);
       return;
@@ -70,10 +102,10 @@ export class GameServerWs {
 
     switch (msg.type) {
       case 'HELLO':
-        this.handleHello(ws, msg);
+        await this.handleHello(ws, msg);
         break;
       case 'ACTION':
-        this.handleAction(ws, msg);
+        await this.handleAction(ws, msg);
         break;
       case 'PING':
         this.send(ws, { protocolVersion: PROTOCOL_VERSION, type: 'PONG', payload: {} });
@@ -83,7 +115,7 @@ export class GameServerWs {
     }
   }
 
-  private handleHello(ws: WebSocket, msg: WsEnvelope): void {
+  private async handleHello(ws: WebSocket, msg: WsEnvelope): Promise<void> {
     const payload = msg.payload as { agentId?: string; seatToken?: string; lastSeenEventId?: number } | undefined;
     if (!payload?.agentId || !payload?.seatToken) {
       this.sendError(ws, 'AUTH_FAILED', 'Missing agentId or seatToken');
@@ -116,9 +148,38 @@ export class GameServerWs {
       agentId: payload.agentId,
       tableId,
       seatToken: payload.seatToken,
+      ...(payload.lastSeenEventId !== undefined ? { lastSeenEventId: payload.lastSeenEventId } : {}),
     };
     this.clients.set(ws, client);
     this.agentToWs.set(payload.agentId, ws);
+
+    // Track agent → tables mapping (multi-table support)
+    if (!this.agentToTables.has(payload.agentId)) {
+      this.agentToTables.set(payload.agentId, new Set());
+    }
+    this.agentToTables.get(payload.agentId)!.add(tableId);
+
+    // Check if this is a reconnection with delta sync
+    const eventBuffer = this.eventBuffers.get(tableId);
+    let deltaEvents: any[] | null = null;
+    let fullResync = false;
+
+    if (payload.lastSeenEventId !== undefined && eventBuffer) {
+      deltaEvents = eventBuffer.getEventsSince(payload.lastSeenEventId);
+      if (deltaEvents === null) {
+        // lastSeenEventId too old, fall back to full snapshot
+        fullResync = true;
+        logger.warn(
+          { agentId: payload.agentId, tableId, lastSeenEventId: payload.lastSeenEventId },
+          'Event buffer overflow, sending full resync',
+        );
+      } else {
+        logger.info(
+          { agentId: payload.agentId, tableId, deltaCount: deltaEvents.length },
+          'Sending delta events for reconnection',
+        );
+      }
+    }
 
     // Send WELCOME
     const state = table.getState();
@@ -130,14 +191,34 @@ export class GameServerWs {
         seatIndex: seat.seatIndex,
         agentId: payload.agentId,
         state: state ? sanitizeStateForPlayer(state, payload.agentId) : undefined,
+        ...(deltaEvents && deltaEvents.length > 0 ? { deltaEvents } : {}),
+        ...(fullResync ? { fullResync: true } : {}),
+        latestEventId: eventBuffer?.getLatestEventId() ?? 0,
       },
     });
   }
 
-  private handleAction(ws: WebSocket, msg: WsEnvelope): void {
+  private async handleAction(ws: WebSocket, msg: WsEnvelope): Promise<void> {
     const client = this.clients.get(ws);
     if (!client) {
       this.sendError(ws, 'AUTH_FAILED', 'Not authenticated. Send HELLO first.');
+      return;
+    }
+
+    // Rate limiting for actions
+    const rateCheck = await this.rateLimiter.tryConsume(client.agentId, 'action');
+    if (!rateCheck.allowed) {
+      logger.warn({ agentId: client.agentId, retryAfterMs: rateCheck.retryAfterMs }, 'Rate limit exceeded');
+      this.send(ws, {
+        protocolVersion: PROTOCOL_VERSION,
+        type: 'ERROR',
+        payload: {
+          code: 'RATE_LIMITED',
+          message: 'Too many actions',
+          retryAfterMs: rateCheck.retryAfterMs,
+          requestId: msg.requestId,
+        },
+      });
       return;
     }
 

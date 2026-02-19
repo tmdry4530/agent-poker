@@ -1,5 +1,5 @@
 {
-  "name": "@agent-poker/adapters-ledger",
+  "name": "@agent-poker/database",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,16 +16,17 @@
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint ok'"
+    "lint": "echo 'lint ok'",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@agent-poker/database": "workspace:*",
-    "drizzle-orm": "^0.36.4"
+    "drizzle-orm": "^0.36.4",
+    "postgres": "^3.4.4"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.10",
-    "pg": "^8.13.1",
-    "pg-mem": "^3.0.3",
+    "drizzle-kit": "^0.28.1",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

@@ -10,8 +10,11 @@ export {
   type PlayerState,
   type PlayerSetup,
   type Pot,
+  BettingMode,
   type GameConfig,
   DEFAULT_CONFIG,
+  DEFAULT_NL_CONFIG,
+  DEFAULT_PL_CONFIG,
   type GameState,
   type HandResult,
   HandRankType,
@@ -25,7 +28,13 @@ export {
 
 export { createDeck, shuffleDeck, dealCards, createSeededRng } from './deck.js';
 export { evaluateBestHand, compareHands } from './evaluate.js';
-export { createInitialState, getLegalActions, applyAction } from './engine.js';
+export {
+  createInitialState,
+  getLegalActions,
+  getLegalActionRanges,
+  applyAction,
+  type ActionRanges,
+} from './engine.js';
 export {
   assignPositions,
   getFirstToActPreflop,

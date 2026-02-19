@@ -78,8 +78,13 @@ export function calculateSidePots(players: PlayerState[]): Pot[] {
     }
   }
 
-  if (remainingAmount > 0 && remainingEligible.length > 0) {
-    pots.push({ amount: remainingAmount, eligible: remainingEligible });
+  if (remainingAmount > 0) {
+    if (remainingEligible.length > 0) {
+      pots.push({ amount: remainingAmount, eligible: remainingEligible });
+    } else if (pots.length > 0) {
+      // All contributors above max all-in have folded — add to the last pot
+      pots[pots.length - 1]!.amount += remainingAmount;
+    }
   }
 
   // If only one player is eligible for a side pot, they get it back immediately

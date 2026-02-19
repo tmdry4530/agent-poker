@@ -8,3 +8,8 @@ export type {
 } from './types.js';
 
 export { MemoryIdentityProvider } from './memory-identity.js';
+export {
+  PostgresIdentityProvider,
+  createIdentityProvider,
+  type PostgresIdentityConfig,
+} from './postgres-identity.js';

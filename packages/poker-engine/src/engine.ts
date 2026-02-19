@@ -9,6 +9,7 @@ import {
 import { calculateSidePots } from './side-pots.js';
 import {
   type ActionType,
+  BettingMode,
   DEFAULT_CONFIG,
   type GameConfig,
   type GameEvent,
@@ -82,31 +83,47 @@ export function createInitialState(
   const seatIndices = players.map((p) => p.seatIndex);
   const { sbSeat, bbSeat } = getBlindSeats(seatIndices, dealerSeatIndex);
 
+  // Collect antes (dead money — does not count toward currentBet)
+  const anteAmount = config.ante ?? 0;
+  let antePot = 0;
+  const anteDetails: Array<{ playerId: string; amount: number }> = [];
+
   // Build player states
   const playerStates: PlayerState[] = players.map((p) => {
-    let blindAmount = 0;
-    if (p.seatIndex === sbSeat) {
-      blindAmount = Math.min(config.smallBlind, p.chips);
-    } else if (p.seatIndex === bbSeat) {
-      blindAmount = Math.min(config.bigBlind, p.chips);
+    // Ante first
+    const ante = Math.min(anteAmount, p.chips);
+    const chipsAfterAnte = p.chips - ante;
+    antePot += ante;
+    if (ante > 0) {
+      anteDetails.push({ playerId: p.id, amount: ante });
     }
 
+    // Then blinds
+    let blindAmount = 0;
+    if (p.seatIndex === sbSeat) {
+      blindAmount = Math.min(config.smallBlind, chipsAfterAnte);
+    } else if (p.seatIndex === bbSeat) {
+      blindAmount = Math.min(config.bigBlind, chipsAfterAnte);
+    }
+
+    const totalPosted = ante + blindAmount;
     return {
       id: p.id,
       seatIndex: p.seatIndex,
-      chips: p.chips - blindAmount,
+      chips: p.chips - totalPosted,
       holeCards: holeCardsMap[p.id]!,
-      currentBet: blindAmount,
-      totalBetThisHand: blindAmount,
+      currentBet: blindAmount, // ante is dead money, only blind counts
+      totalBetThisHand: totalPosted,
       hasFolded: false,
       hasActed: false,
-      isAllIn: p.chips - blindAmount === 0 && blindAmount > 0,
+      isAllIn: p.chips - totalPosted === 0 && totalPosted > 0,
     };
   });
 
   const sbPlayer = playerStates.find((p) => p.seatIndex === sbSeat)!;
   const bbPlayer = playerStates.find((p) => p.seatIndex === bbSeat)!;
-  const potAmount = playerStates.reduce((sum, p) => sum + p.currentBet, 0);
+  const blindPot = playerStates.reduce((sum, p) => sum + p.currentBet, 0);
+  const potAmount = antePot + blindPot;
 
   // First to act preflop
   const firstToAct = getFirstToActPreflop(seatIndices, dealerSeatIndex);
@@ -122,6 +139,7 @@ export function createInitialState(
     deck,
     pots: [{ amount: potAmount, eligible: players.map((p) => p.id) }],
     betsThisStreet: 1, // BB counts as the opening bet
+    lastRaiseSize: config.bigBlind, // initial "raise" is the big blind
     isHandComplete: false,
   };
 
@@ -136,9 +154,18 @@ export function createInitialState(
       config,
     },
   });
+  if (anteDetails.length > 0) {
+    events.push({
+      type: GameEventType.ANTES_POSTED,
+      seq: 1,
+      handId,
+      payload: { antes: anteDetails, totalAnte: antePot },
+    });
+  }
+
   events.push({
     type: GameEventType.BLINDS_POSTED,
-    seq: 1,
+    seq: anteDetails.length > 0 ? 2 : 1,
     handId,
     payload: {
       smallBlind: { playerId: sbPlayer.id, amount: sbPlayer.currentBet },
@@ -162,6 +189,12 @@ export function createInitialState(
 
 // ── Legal actions ───────────────────────────────────────────
 
+function isRaiseCapReached(state: GameState): boolean {
+  const cap = state.config.maxRaisesPerStreet;
+  if (cap === 0) return false; // unlimited (NL/PL)
+  return state.betsThisStreet >= cap;
+}
+
 export function getLegalActions(state: GameState): ActionType[] {
   if (state.isHandComplete) return [];
   const player = getActivePlayer(state);
@@ -175,17 +208,67 @@ export function getLegalActions(state: GameState): ActionType[] {
 
   if (toCall === 0) {
     actions.push('CHECK' as ActionType);
-    if (state.betsThisStreet < state.config.maxRaisesPerStreet && player.chips > 0) {
+    if (!isRaiseCapReached(state) && player.chips > 0) {
       actions.push('BET' as ActionType);
     }
   } else {
     actions.push('CALL' as ActionType);
-    if (state.betsThisStreet < state.config.maxRaisesPerStreet && player.chips > toCall) {
+    if (!isRaiseCapReached(state) && player.chips > toCall) {
       actions.push('RAISE' as ActionType);
     }
   }
 
   return actions;
+}
+
+// ── Legal action ranges (for NL/PL) ────────────────────────
+
+export interface ActionRanges {
+  minBet: number;
+  maxBet: number;
+  minRaise: number;
+  maxRaise: number;
+}
+
+export function getLegalActionRanges(state: GameState): ActionRanges {
+  const player = getActivePlayer(state);
+  const mode = state.config.bettingMode;
+  const highestBet = maxCurrentBet(state);
+  const toCall = highestBet - player.currentBet;
+
+  if (mode === BettingMode.LIMIT) {
+    const betSize =
+      state.street === Street.PREFLOP || state.street === Street.FLOP
+        ? state.config.smallBet
+        : state.config.bigBet;
+    return {
+      minBet: betSize,
+      maxBet: betSize,
+      minRaise: toCall + betSize,
+      maxRaise: toCall + betSize,
+    };
+  }
+
+  if (mode === BettingMode.NO_LIMIT) {
+    const minBet = Math.min(state.config.bigBlind, player.chips);
+    const maxBet = player.chips;
+    const minRaiseIncrement = Math.max(state.lastRaiseSize, state.config.bigBlind);
+    const minRaise = Math.min(toCall + minRaiseIncrement, player.chips);
+    const maxRaise = player.chips;
+    return { minBet, maxBet, minRaise, maxRaise };
+  }
+
+  // POT_LIMIT: max bet/raise capped by pot size
+  const potTotal = state.pots.reduce((sum, p) => sum + p.amount, 0);
+  // BET: min = bigBlind, max = pot
+  const minBet = Math.min(state.config.bigBlind, player.chips);
+  const maxBet = Math.min(potTotal, player.chips);
+  // RAISE: min = call + lastRaiseSize, max = call + pot-after-call
+  const minRaiseIncrement = Math.max(state.lastRaiseSize, state.config.bigBlind);
+  const minRaise = Math.min(toCall + minRaiseIncrement, player.chips);
+  const potAfterCall = potTotal + toCall;
+  const maxRaise = Math.min(toCall + potAfterCall, player.chips);
+  return { minBet, maxBet, minRaise, maxRaise };
 }
 
 // ── Apply action ────────────────────────────────────────────
@@ -216,14 +299,12 @@ export function applyAction(
   }
 
   // Deep clone state
-  const newState: GameState = JSON.parse(JSON.stringify(state));
+  const newState: GameState = structuredClone(state);
   const events: GameEvent[] = [];
   const player = newState.players.find((p) => p.id === playerId)!;
   const highestBet = maxCurrentBet(newState);
-  const betSize =
-    newState.street === Street.PREFLOP || newState.street === Street.FLOP
-      ? newState.config.smallBet
-      : newState.config.bigBet;
+  const mode = newState.config.bettingMode;
+  const isLimit = mode === BettingMode.LIMIT;
 
   switch (action.type) {
     case 'FOLD' as ActionType: {
@@ -269,7 +350,34 @@ export function applyAction(
       break;
     }
     case 'BET' as ActionType: {
-      const amount = Math.min(betSize, player.chips);
+      let amount: number;
+      if (isLimit) {
+        const betSize =
+          newState.street === Street.PREFLOP || newState.street === Street.FLOP
+            ? newState.config.smallBet
+            : newState.config.bigBet;
+        amount = Math.min(betSize, player.chips);
+      } else {
+        // NL/PL: use action.amount, validate range
+        const ranges = getLegalActionRanges(newState);
+        const requested = action.amount ?? ranges.minBet;
+        if (requested > player.chips) {
+          // All-in
+          amount = player.chips;
+        } else if (requested < ranges.minBet) {
+          throw new PokerError(
+            PokerErrorCode.INVALID_ACTION,
+            `BET amount ${requested} below minimum ${ranges.minBet}`,
+          );
+        } else if (requested > ranges.maxBet) {
+          throw new PokerError(
+            PokerErrorCode.INVALID_ACTION,
+            `BET amount ${requested} above maximum ${ranges.maxBet}`,
+          );
+        } else {
+          amount = requested;
+        }
+      }
       player.chips -= amount;
       player.currentBet += amount;
       player.totalBetThisHand += amount;
@@ -277,6 +385,7 @@ export function applyAction(
       if (player.chips === 0) player.isAllIn = true;
       newState.pots[0]!.amount += amount;
       newState.betsThisStreet += 1;
+      newState.lastRaiseSize = amount; // the bet IS the raise increment
       events.push({
         type: GameEventType.PLAYER_ACTION,
         seq: 0,
@@ -292,12 +401,44 @@ export function applyAction(
       break;
     }
     case 'RAISE' as ActionType: {
-      if (newState.betsThisStreet >= newState.config.maxRaisesPerStreet) {
+      if (isRaiseCapReached(newState)) {
         throw new PokerError(PokerErrorCode.RAISE_CAP_REACHED, 'Raise cap reached');
       }
       const toCall = highestBet - player.currentBet;
-      const raiseTotal = toCall + betSize;
-      const amount = Math.min(raiseTotal, player.chips);
+      let amount: number;
+      let raiseIncrement: number;
+
+      if (isLimit) {
+        const betSize =
+          newState.street === Street.PREFLOP || newState.street === Street.FLOP
+            ? newState.config.smallBet
+            : newState.config.bigBet;
+        const raiseTotal = toCall + betSize;
+        amount = Math.min(raiseTotal, player.chips);
+        raiseIncrement = betSize;
+      } else {
+        // NL/PL: action.amount is total chips put in this action (call + raise increment)
+        const ranges = getLegalActionRanges(newState);
+        const requested = action.amount ?? ranges.minRaise;
+        if (requested > player.chips) {
+          // All-in
+          amount = player.chips;
+          raiseIncrement = Math.max(0, amount - toCall);
+        } else if (requested < ranges.minRaise) {
+          throw new PokerError(
+            PokerErrorCode.INVALID_ACTION,
+            `RAISE amount ${requested} below minimum ${ranges.minRaise}`,
+          );
+        } else if (requested > ranges.maxRaise) {
+          throw new PokerError(
+            PokerErrorCode.INVALID_ACTION,
+            `RAISE amount ${requested} above maximum ${ranges.maxRaise}`,
+          );
+        } else {
+          amount = requested;
+          raiseIncrement = amount - toCall;
+        }
+      }
       player.chips -= amount;
       player.currentBet += amount;
       player.totalBetThisHand += amount;
@@ -305,6 +446,10 @@ export function applyAction(
       if (player.chips === 0) player.isAllIn = true;
       newState.pots[0]!.amount += amount;
       newState.betsThisStreet += 1;
+      // Track raise size for min-raise calculation
+      if (raiseIncrement > 0) {
+        newState.lastRaiseSize = raiseIncrement;
+      }
       events.push({
         type: GameEventType.PLAYER_ACTION,
         seq: 0,
@@ -386,6 +531,7 @@ function advanceStreet(state: GameState, events: GameEvent[]): void {
   // Deal community cards for the new street
   state.street = nextStreet;
   state.betsThisStreet = 0;
+  state.lastRaiseSize = state.config.bigBlind; // reset for new street
   for (const p of state.players) {
     p.currentBet = 0;
     p.hasActed = false;
