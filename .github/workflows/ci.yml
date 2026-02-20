@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build
+        run: pnpm build
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -55,9 +58,6 @@ jobs:
 
       - name: Coverage (poker-engine, hand-history, agent-sdk)
         run: pnpm test:coverage
-
-      - name: Build
-        run: pnpm build
 
       - name: E2E smoke test (demo 20 hands)
         run: pnpm demo
