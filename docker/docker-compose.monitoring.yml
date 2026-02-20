@@ -46,6 +46,35 @@ services:
     networks:
       - monitoring
 
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: agent-poker-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - monitoring
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: agent-poker-promtail
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - monitoring
+
 networks:
   monitoring:
     driver: bridge

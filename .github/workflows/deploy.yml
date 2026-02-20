@@ -1,8 +1,14 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
     branches: [master]
+    types: [completed]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -11,6 +17,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write

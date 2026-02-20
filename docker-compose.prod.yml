@@ -17,26 +17,34 @@ services:
     networks:
       - internal
 
-  # Redis is provisioned for production use but NOT used in MVP1 application code.
-  # Current status:
-  #   - rate-limiter.ts: uses InMemoryStore by default (RateLimiterStore interface is Redis-ready)
-  #   - matchmaking.ts: uses in-memory queue (MatchmakingQueue class)
-  # Future use (MVP2+):
-  #   - Replace InMemoryStore with RedisStore for distributed rate limiting
-  #   - Replace in-memory matchmaking with Redis-backed pub/sub queue
-  #   - Session store for WebSocket reconnection state
-  redis:
-    image: redis:7-alpine
-    container_name: agent-poker-redis
+  # Redis removed for MVP1 — not used in application code.
+  # MVP2+: add Redis for distributed rate limiting, matchmaking pub/sub, session store.
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: agent-poker-nginx
     restart: unless-stopped
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - agent_poker_redis:/data
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/docker-entrypoint.sh:/docker-entrypoint-custom.sh:ro
+      - nginx_certs:/etc/nginx/certs
+    entrypoint: ["/docker-entrypoint-custom.sh"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      test: ["CMD-SHELL", "wget --spider -q http://localhost/nginx-health || exit 1"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 10s
+    depends_on:
+      lobby-api:
+        condition: service_healthy
+      game-server:
+        condition: service_healthy
+      admin-ui:
+        condition: service_healthy
     networks:
       - internal
 
@@ -46,13 +54,15 @@ services:
       dockerfile: docker/Dockerfile.lobby-api
     container_name: agent-poker-lobby-api
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # No host port binding — nginx handles external traffic
+    expose:
+      - "8080"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
-      REDIS_URL: redis://redis:6379
       PORT: 8080
+      SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
       interval: 10s
@@ -61,8 +71,6 @@ services:
       start_period: 15s
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     networks:
       - internal
@@ -73,13 +81,15 @@ services:
       dockerfile: docker/Dockerfile.game-server
     container_name: agent-poker-game-server
     restart: unless-stopped
-    ports:
-      - "8081:8081"
+    # No host port binding — nginx handles external traffic
+    expose:
+      - "8081"
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
-      REDIS_URL: redis://redis:6379
       PORT: 8081
+      SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"const s=require('net').connect(8081,'localhost',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))\""]
       interval: 10s
@@ -88,8 +98,6 @@ services:
       start_period: 15s
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     networks:
       - internal
@@ -100,8 +108,9 @@ services:
       dockerfile: docker/Dockerfile.admin-ui
     container_name: agent-poker-admin-ui
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    # No host port binding — nginx handles external traffic
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
       # Browser-accessible URLs (NEXT_PUBLIC_ vars are embedded at build time for client JS)
@@ -128,4 +137,4 @@ networks:
 
 volumes:
   agent_poker_pgdata:
-  agent_poker_redis:
+  nginx_certs:

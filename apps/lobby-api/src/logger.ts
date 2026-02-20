@@ -15,6 +15,7 @@ const options: pino.LoggerOptions =
       }
     : {
         level: process.env['LOG_LEVEL'] ?? 'info',
+        base: { service: 'lobby-api' },
       };
 
 export const logger = pino(options);

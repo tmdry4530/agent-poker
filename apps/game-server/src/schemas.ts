@@ -8,12 +8,12 @@ import { z } from 'zod';
 
 export const WsEnvelopeSchema = z.object({
   protocolVersion: z.number().int(),
-  type: z.string(),
-  requestId: z.string().optional(),
-  tableId: z.string().optional(),
-  seatToken: z.string().optional(),
-  seq: z.number().int().optional(),
-  payload: z.record(z.string(), z.unknown()).optional(),
+  type: z.string().max(64),
+  requestId: z.string().max(128).optional(),
+  tableId: z.string().max(128).optional(),
+  seatToken: z.string().max(4096).optional(),
+  seq: z.number().int().nonnegative().optional(),
+  payload: z.record(z.string().max(64), z.unknown()).optional(),
 });
 
 // ── Client messages ─────────────────────────────────────────
@@ -26,7 +26,7 @@ export const HelloPayloadSchema = z.object({
 
 export const ActionPayloadSchema = z.object({
   action: z.enum(['FOLD', 'CHECK', 'CALL', 'BET', 'RAISE']),
-  amount: z.number().int().nonnegative().optional(),
+  amount: z.number().int().nonnegative().max(1_000_000).optional(),
 });
 
 export const HelloMessageSchema = WsEnvelopeSchema.extend({

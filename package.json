@@ -6,6 +6,7 @@
   "scripts": {
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "test:coverage": "pnpm --filter @agent-poker/poker-engine --filter @agent-poker/hand-history --filter @agent-poker/agent-sdk test:coverage",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --parallel --filter @agent-poker/lobby-api --filter @agent-poker/game-server --filter @agent-poker/admin-ui dev",

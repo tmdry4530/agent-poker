@@ -13,7 +13,13 @@ export interface SeatTokenPayload {
 const DEFAULT_EXPIRY_SECONDS = 30 * 60; // 30 minutes
 
 function getSecret(): string {
-  const secret = process.env['SEAT_TOKEN_SECRET'] ?? 'dev-seat-token-secret-change-in-production';
+  const secret = process.env['SEAT_TOKEN_SECRET'];
+  if (!secret) {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error('SEAT_TOKEN_SECRET must be set in production. Generate with: openssl rand -base64 32');
+    }
+    return 'dev-seat-token-secret-DO-NOT-USE-IN-PRODUCTION';
+  }
   return secret;
 }
 

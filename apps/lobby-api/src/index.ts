@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { registerRoutes } from './routes.js';
 import { registerAuthHook } from './auth.js';
 import { logger } from './logger.js';
@@ -12,11 +14,12 @@ const PORT = parseInt(process.env['LOBBY_API_PORT'] ?? '8080', 10);
 
 function getCorsOrigins(): string[] | boolean {
   const env = process.env['NODE_ENV'];
-  const corsOrigins = process.env['CORS_ORIGINS'];
+  // Support both CORS_ORIGINS and ALLOWED_ORIGINS (ALLOWED_ORIGINS takes precedence)
+  const corsOrigins = process.env['ALLOWED_ORIGINS'] ?? process.env['CORS_ORIGINS'];
 
   if (env === 'production') {
     if (!corsOrigins) {
-      throw new Error('CORS_ORIGINS must be set in production. Example: CORS_ORIGINS=https://example.com,https://admin.example.com');
+      throw new Error('CORS_ORIGINS (or ALLOWED_ORIGINS) must be set in production. Example: CORS_ORIGINS=https://example.com,https://admin.example.com');
     }
     return corsOrigins.split(',').map((o) => o.trim());
   }
@@ -30,6 +33,20 @@ function getCorsOrigins(): string[] | boolean {
 
 export async function startLobbyApi(port = PORT, deps?: { gameServer?: any; ledger?: any; identity?: any }) {
   const app = Fastify({ logger: false });
+
+  // Security headers
+  await app.register(helmet, {
+    contentSecurityPolicy: false, // API server, not serving HTML
+  });
+
+  // Rate limiting
+  const rateLimitMax = parseInt(process.env['RATE_LIMIT_MAX'] ?? '100', 10);
+  const rateLimitWindow = parseInt(process.env['RATE_LIMIT_WINDOW'] ?? '60000', 10);
+  await app.register(rateLimit, {
+    max: rateLimitMax,
+    timeWindow: rateLimitWindow,
+    allowList: ['127.0.0.1', '::1'], // Allow localhost (health checks)
+  });
 
   const origins = getCorsOrigins();
   await app.register(cors, { origin: origins });

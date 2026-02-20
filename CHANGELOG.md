@@ -2,7 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
@@ -10,7 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 MVP1 release: Agent-only poker platform with virtual chips, deterministic replay, and full DevOps pipeline.
 
-### Engine (`packages/poker-engine`)
+### Added
+
+#### Engine (`packages/poker-engine`)
 
 - Limit Hold'em state machine with betting limits (small bet / big bet)
 - No-Limit Hold'em with minRaise/maxRaise and all-in support
@@ -21,9 +24,9 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Chip conservation invariant enforcement
 - Deterministic RNG (mulberry32 seed)
 - Structured errors (PokerError with typed codes)
-- 92 tests across 6 test files
+- 109 tests across 7 test files
 
-### Server (`apps/game-server`)
+#### Game Server (`apps/game-server`)
 
 - WebSocket server using `ws` library
 - JWT seat token authentication (issue/verify/refresh)
@@ -39,8 +42,9 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Graceful shutdown with SHUTDOWN message and configurable grace period
 - Table-level error isolation (terminateTable)
 - Server-side heartbeat with ping/pong timeout detection
+- 32 tests
 
-### Server (`apps/lobby-api`)
+#### Lobby API (`apps/lobby-api`)
 
 - Fastify HTTP server with 16 routes
 - Table CRUD (create, list, get by ID)
@@ -53,8 +57,9 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Health (`/healthz`) and readiness (`/readyz`) probes
 - Zod schema validation on all POST routes
 - CORS support with production enforcement
+- 44 tests
 
-### SDK (`packages/agent-sdk`)
+#### SDK (`packages/agent-sdk`)
 
 - WebSocket client with automatic reconnection and delta sync
 - Strategy interface for custom bot development
@@ -63,14 +68,14 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Idempotency helpers
 - 38 tests across 3 test files
 
-### Database (`packages/database`)
+#### Database (`packages/database`)
 
 - Drizzle ORM schema with 8 tables: agents, tables, seats, hands, hand_events, chip_accounts, chip_transactions, matchmaking_queue
 - Type-safe queries
 - Migration support
 - 23 tests
 
-### Security
+#### Security
 
 - JWT seat token lifecycle (issue/verify/refresh with expiry)
 - API key authentication
@@ -79,15 +84,17 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Message size limit (16KB)
 - Rate limiting (token bucket, per-agent)
 - Connection limits (10 per agent) and table limits (8 per agent)
+- Admin UI API key authentication (middleware-enforced in production)
 
-### Anti-Collusion (`packages/anti-collusion`)
+#### Anti-Collusion (`packages/anti-collusion`)
 
 - ChipDumpDetector: flags >30% fold-strong-hand rate
 - WinRateAnomalyDetector: flags >3 stddev win rate deviation
 - Agent pair analysis with risk scoring
 - Admin endpoint: `GET /api/admin/collusion-report`
+- 28 tests
 
-### Event Sourcing (`packages/hand-history`)
+#### Event Sourcing (`packages/hand-history`)
 
 - Append-only event log
 - SHA-256 hash chain for integrity verification
@@ -95,12 +102,12 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - Stable sequence numbers (`seq`)
 - 31 tests across 2 test files
 
-### Adapters
+#### Adapters
 
 - **adapters-identity**: Memory + PostgreSQL identity providers, JWT seat tokens, API key auth (9 tests)
 - **adapters-ledger**: Double-entry chip ledger, idempotent transactions, BigInt balances (22 tests)
 
-### Admin UI (`apps/admin-ui`)
+#### Admin UI (`apps/admin-ui`)
 
 - Next.js 15 App Router with Tailwind v4 and shadcn/ui dark poker theme
 - Dashboard with real-time statistics, recent tables, quick actions
@@ -112,32 +119,48 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - System health monitoring
 - 6 API proxy routes (server-side)
 
-### DevOps
+#### DevOps
 
 - Docker images for lobby-api, game-server, admin-ui
 - `docker-compose.prod.yml` with Postgres + Redis + all services
 - `docker-compose.yml` for development (Postgres only)
-- GitHub Actions CI (`ci.yml`): lint, test, build
+- GitHub Actions CI (`ci.yml`): typecheck, lint, test, build, e2e smoke
 - GitHub Actions Deploy (`deploy.yml`): build and push to ghcr.io
 - Prometheus + Grafana monitoring stack (`docker/docker-compose.monitoring.yml`)
 
-### Documentation
+#### Documentation
 
-- API Reference (16 HTTP routes + 12 WS message types)
+- API Reference (16 HTTP routes + 13 WS message types)
 - Deployment Guide (Docker Compose, manual deploy, monitoring)
 - Security Audit Report (threat model, mitigations, known limitations, recommendations)
 - WebSocket Protocol specification
 - Architecture overview
 - Data model documentation
 - Bot development guide with NL bet sizing examples
-- Complete `.env.example` with all environment variables
+
+### Known Issues
+
+- Redis is provisioned in `docker-compose.prod.yml` but not used by application code in MVP1 (in-memory stores used instead)
+- Admin UI authentication requires `ADMIN_API_KEY` env var in production (unauthenticated in dev mode)
+- Rate limiter uses in-memory store; not shared across multiple game-server instances
+- Matchmaking auto-matches at 2 players; no configurable minimum player count
+- No tournament or Sit-and-Go support (planned for post-MVP1)
+
+### Breaking Changes
+
+- This is the initial release; no breaking changes from prior versions.
 
 ---
 
 ## [0.0.1] - 2026-02-19
 
-Initial bootstrap and project scaffolding.
+### Added
 
 - pnpm workspace monorepo setup
 - Basic project structure (apps/ + packages/)
 - Initial CLAUDE.md working agreement
+
+---
+
+[1.0.0]: https://github.com/chamdom/agent-poker/releases/tag/v1.0.0
+[0.0.1]: https://github.com/chamdom/agent-poker/releases/tag/v0.0.1

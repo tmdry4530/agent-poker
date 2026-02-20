@@ -1,0 +1,37 @@
+# CODEOWNERS - Defines code ownership for pull request reviews
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @chamdom
+
+# Core engine (most critical - chip conservation, state machine integrity)
+packages/poker-engine/ @chamdom
+
+# Event sourcing and replay
+packages/hand-history/ @chamdom
+
+# Server applications
+apps/game-server/ @chamdom
+apps/lobby-api/ @chamdom
+apps/admin-ui/ @chamdom
+
+# Bot SDK
+packages/agent-sdk/ @chamdom
+
+# Database schema and migrations
+packages/database/ @chamdom
+
+# Security-sensitive packages
+packages/adapters-identity/ @chamdom
+packages/adapters-ledger/ @chamdom
+packages/anti-collusion/ @chamdom
+
+# Infrastructure and DevOps
+docker/ @chamdom
+docker-compose*.yml @chamdom
+.github/workflows/ @chamdom
+monitoring/ @chamdom
+
+# Documentation
+docs/ @chamdom
+*.md @chamdom

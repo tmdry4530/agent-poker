@@ -112,7 +112,8 @@ export class GameServerWs {
   }
 
   private getAllowedOrigins(): string[] | null {
-    const corsOrigins = process.env['CORS_ORIGINS'];
+    // Support both ALLOWED_ORIGINS and CORS_ORIGINS (ALLOWED_ORIGINS takes precedence)
+    const corsOrigins = process.env['ALLOWED_ORIGINS'] ?? process.env['CORS_ORIGINS'];
     if (corsOrigins) {
       return corsOrigins.split(',').map((o) => o.trim());
     }

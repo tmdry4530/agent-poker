@@ -5,18 +5,18 @@
 import { z } from 'zod';
 
 export const CreateTableBodySchema = z.object({
-  variant: z.string().optional(),
+  variant: z.string().max(64).optional(),
   maxSeats: z.number().int().min(2).max(10).optional(),
 });
 
 export const JoinTableBodySchema = z.object({
   agentId: z.string().min(1).max(128),
-  buyIn: z.number().int().positive(),
+  buyIn: z.number().int().positive().max(1_000_000),
 });
 
 export const MatchmakingQueueBodySchema = z.object({
   agentId: z.string().min(1).max(128),
-  variant: z.string().optional(),
+  variant: z.string().max(64).optional(),
   blindLevel: z.enum(['micro', 'low', 'mid', 'high']).optional(),
 });
 
