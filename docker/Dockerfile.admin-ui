@@ -27,8 +27,8 @@ RUN pnpm install --frozen-lockfile
 COPY packages/ packages/
 COPY apps/admin-ui/ apps/admin-ui/
 
-# Build workspace packages then Next.js standalone
-RUN pnpm -r build
+# Build only this app and its workspace dependencies
+RUN pnpm --filter @agent-poker/admin-ui... build
 
 # --- Runtime stage ---
 FROM node:20-slim AS runtime

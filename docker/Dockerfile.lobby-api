@@ -27,8 +27,8 @@ RUN pnpm install --frozen-lockfile
 COPY packages/ packages/
 COPY apps/lobby-api/ apps/lobby-api/
 
-# Build all workspace packages then the app
-RUN pnpm -r build
+# Build only this app and its workspace dependencies
+RUN pnpm --filter @agent-poker/lobby-api... build
 
 # Deploy minimal production install
 RUN pnpm deploy --filter @agent-poker/lobby-api --prod /app/deploy
