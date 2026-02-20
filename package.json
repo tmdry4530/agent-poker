@@ -10,7 +10,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --parallel --filter @agent-poker/lobby-api --filter @agent-poker/game-server --filter @agent-poker/admin-ui dev",
-    "demo": "tsx scripts/demo-20-hands.ts"
+    "demo": "tsx scripts/demo-20-hands.ts",
+    "demo:8max": "tsx scripts/demo-8max-nolimit.ts"
   },
   "dependencies": {
     "@agent-poker/adapters-identity": "workspace:*",

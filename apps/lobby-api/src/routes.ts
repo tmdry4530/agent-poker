@@ -15,6 +15,7 @@ import {
   WinRateAnomalyDetector,
   analyzeAgentPair,
 } from '@agent-poker/anti-collusion';
+import type { GameConfig } from '@agent-poker/poker-engine';
 
 interface Deps {
   gameServer?: any;
@@ -40,12 +41,39 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     }
 
     const { TableActor } = await import('@agent-poker/game-server');
+    const { BettingMode, DEFAULT_CONFIG, DEFAULT_NL_CONFIG, DEFAULT_PL_CONFIG } = await import('@agent-poker/poker-engine');
     const tableId = `tbl_${crypto.randomUUID().slice(0, 8)}`;
     const blindConfig = BLIND_CONFIGS[entries[0]!.blindLevel];
+    const variant = (entries[0]!.variant === 'NL' || entries[0]!.variant === 'PL') ? entries[0]!.variant : 'LIMIT';
+    const maxSeats = entries[0]!.maxSeats;
+
+    // Build config from variant and blind level
+    let baseConfig: GameConfig;
+    switch (variant) {
+      case 'NL':
+        baseConfig = { ...DEFAULT_NL_CONFIG };
+        break;
+      case 'PL':
+        baseConfig = { ...DEFAULT_PL_CONFIG };
+        break;
+      default:
+        baseConfig = { ...DEFAULT_CONFIG };
+    }
+
+    const config: GameConfig = {
+      ...baseConfig,
+      maxPlayers: maxSeats,
+      smallBlind: blindConfig.smallBlind,
+      bigBlind: blindConfig.bigBlind,
+      smallBet: variant === 'LIMIT' ? blindConfig.bigBlind : 0,
+      bigBet: variant === 'LIMIT' ? blindConfig.bigBlind * 2 : 0,
+    };
 
     const table = new TableActor({
       tableId,
-      maxSeats: 8,
+      maxSeats,
+      variant,
+      config,
       onHandComplete: (_tid, handId, events, state) => {
         handCountSinceStart++;
         logger.info({ handId, winners: state.winners }, 'Hand complete');
@@ -55,7 +83,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     server.registerTable(table);
 
     logger.info(
-      { tableId, players: entries.map((e) => e.agentId), blindLevel: entries[0]!.blindLevel },
+      { tableId, players: entries.map((e) => e.agentId), blindLevel: entries[0]!.blindLevel, variant },
       'Auto-created table for matched players',
     );
 
@@ -66,6 +94,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
         type: 'MATCH_FOUND',
         payload: {
           tableId,
+          variant,
           blindLevel: entry.blindLevel,
           smallBlind: blindConfig.smallBlind,
           bigBlind: blindConfig.bigBlind,
@@ -130,7 +159,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
   app.get('/api/tables', async () => {
     const server = deps.gameServer;
     if (!server) return { tables: [] };
-    const tables = server.getAllTables().map((t: any) => t.getInfo());
+    const tables = server.getAllTables().map((t: any) => {
+      const info = t.getInfo();
+      return {
+        ...info,
+        config: t.config, // Add config from TableActor instance
+      };
+    });
     return { tables };
   });
 
@@ -139,10 +174,14 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (!server) return reply.status(404).send({ error: 'No game server' });
     const table = server.getTable(req.params.id);
     if (!table) return reply.status(404).send({ error: 'Table not found' });
-    return table.getInfo();
+    const info = table.getInfo();
+    return {
+      ...info,
+      config: table.config, // Add config from TableActor instance
+    };
   });
 
-  app.post<{ Body: { variant?: string; maxSeats?: number } }>('/api/tables', async (req, reply) => {
+  app.post<{ Body: { variant?: 'LIMIT' | 'NL' | 'PL'; maxSeats?: number; smallBlind?: number; bigBlind?: number; ante?: number } }>('/api/tables', async (req, reply) => {
     const parseResult = CreateTableBodySchema.safeParse(req.body);
     if (!parseResult.success) {
       return reply.status(400).send(formatZodError(parseResult.error));
@@ -152,18 +191,52 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const server = deps.gameServer;
     if (!server) throw new Error('No game server');
     const { TableActor } = await import('@agent-poker/game-server');
+    const { BettingMode, DEFAULT_CONFIG, DEFAULT_NL_CONFIG, DEFAULT_PL_CONFIG } = await import('@agent-poker/poker-engine');
+
     const tableId = `tbl_${crypto.randomUUID().slice(0, 8)}`;
     const maxSeats = body.maxSeats ?? 8;
+    const variant = body.variant ?? 'LIMIT';
+
+    // Build GameConfig from request params
+    let baseConfig: GameConfig;
+    switch (variant) {
+      case 'NL':
+        baseConfig = { ...DEFAULT_NL_CONFIG };
+        break;
+      case 'PL':
+        baseConfig = { ...DEFAULT_PL_CONFIG };
+        break;
+      default:
+        baseConfig = { ...DEFAULT_CONFIG };
+    }
+
+    // Override with user-provided values
+    const config: GameConfig = {
+      ...baseConfig,
+      maxPlayers: maxSeats,
+      ...(body.smallBlind !== undefined && { smallBlind: body.smallBlind }),
+      ...(body.bigBlind !== undefined && { bigBlind: body.bigBlind }),
+      ...(body.ante !== undefined && { ante: body.ante }),
+    };
+
+    // For LIMIT, update smallBet/bigBet based on blinds
+    if (variant === 'LIMIT' && body.bigBlind !== undefined) {
+      config.smallBet = body.bigBlind;
+      config.bigBet = body.bigBlind * 2;
+    }
+
     const table = new TableActor({
       tableId,
       maxSeats,
+      variant,
+      config,
       onHandComplete: (_tid, handId, events, state) => {
         handCountSinceStart++;
         logger.info({ handId, winners: state.winners }, 'Hand complete');
       },
     });
     server.registerTable(table);
-    return { tableId, status: 'open', maxSeats };
+    return { tableId, status: 'open', maxSeats, variant, config };
   });
 
   // ── Join table ────────────────────────────────────────
@@ -255,7 +328,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ── Matchmaking ─────────────────────────────────────
 
-  app.post<{ Body: { agentId: string; variant?: string; blindLevel?: BlindLevel } }>(
+  app.post<{ Body: { agentId: string; variant?: 'LIMIT' | 'NL' | 'PL'; blindLevel?: BlindLevel; maxSeats?: number } }>(
     '/api/matchmaking/queue',
     async (req, reply) => {
       const parseResult = MatchmakingQueueBodySchema.safeParse(req.body);
@@ -264,12 +337,13 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       }
       const body = parseResult.data;
 
-      const variant = body.variant ?? 'LHE';
+      const variant = body.variant ?? 'LIMIT';
       const blindLevel = body.blindLevel ?? 'low';
+      const maxSeats = body.maxSeats ?? 8;
 
       try {
-        matchmakingQueue.enqueue(body.agentId, variant, blindLevel);
-        return { status: 'queued', agentId: body.agentId, variant, blindLevel };
+        matchmakingQueue.enqueue(body.agentId, variant, blindLevel, maxSeats);
+        return { status: 'queued', agentId: body.agentId, variant, blindLevel, maxSeats };
       } catch (err) {
         return reply.status(400).send({ error: (err as Error).message });
       }

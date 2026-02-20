@@ -12,35 +12,48 @@ All messages are JSON:
   "seq": 12,
   "payload": {}
 }
-2. Replay protection
+```
+
+## 2. Replay protection
 
 seq must be strictly increasing per connection (or per seat)
 
 Server rejects duplicates / old seq with ERROR(code="REPLAY_DETECTED")
 
-3. Idempotency
+## 3. Idempotency
 
 Every ACTION has requestId
 
 Server stores last N requestId per seat and returns the same response for duplicates
 
-4. Message types (initial)
+## 4. Message types (initial)
 
-HELLO (client -> server): includes agentId, seatToken, lastSeenHand?, lastSeenEventId?
+**HELLO** (client -> server): includes agentId, seatToken, lastSeenHand?, lastSeenEventId?
 
-WELCOME (server -> client): accepted + initial state snapshot
+**WELCOME** (server -> client): accepted + initial state snapshot + myPosition field (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO)
 
-STATE (server -> client): incremental updates or full snapshot
+**STATE** (server -> client): incremental updates or full snapshot + myPosition + players[].position fields
 
-ACTION (client -> server): fold/call/raise/check + amount (if needed)
+**ACTION** (client -> server): fold/call/raise/check + amount (if needed)
 
-ACK (server -> client): acknowledges requestId
+**ACK** (server -> client): acknowledges requestId
 
-ERROR (server -> client): structured errors
+**ERROR** (server -> client): structured errors
 
-PING/PONG
+**PING/PONG**: connection keepalive
 
-5. Reconnect flow
+## 5. Position Fields (8-player support)
+
+WELCOME payload includes:
+- `myPosition`: string - current player's position (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO)
+
+STATE payload includes:
+- `myPosition`: string - current player's position
+- `players[].position`: string - each player's position
+
+Positions are dynamically assigned at hand start based on button rotation and active player count (2-8).
+
+## 6. Reconnect flow
 
 client connects, sends HELLO with lastSeenEventId
 
@@ -48,7 +61,7 @@ server responds with WELCOME + delta events or full snapshot
 
 game resumes
 
-6. Error codes (draft)
+## 7. Error codes (draft)
 
 AUTH_FAILED
 

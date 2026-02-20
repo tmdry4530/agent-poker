@@ -98,10 +98,19 @@ export class AgentClient {
         currentBet: p.currentBet ?? 0,
         hasFolded: p.hasFolded ?? false,
         isAllIn: p.isAllIn ?? false,
+        position: p.position,
       }));
 
     const pots = state.pots ?? [{ amount: 0, eligible: [] }];
     const potAmount = pots.reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0);
+
+    // Build position mapping
+    const positions: Record<number, string> = {};
+    (state.players ?? []).forEach((p: any) => {
+      if (p.position) {
+        positions[p.seatIndex] = p.position;
+      }
+    });
 
     // HU backward-compat
     const firstOpponent = opponents[0];
@@ -125,6 +134,8 @@ export class AgentClient {
       legalActions: this.inferLegalActions(myPlayer, state),
       bettingMode: state.config?.bettingMode,
       actionRanges: state.actionRanges,
+      myPosition: state.myPosition ?? myPlayer.position,
+      positions: Object.keys(positions).length > 0 ? positions : undefined,
       // HU backward-compat (deprecated)
       opponentId: firstOpponent?.id,
       opponentChips: firstOpponent?.chips,

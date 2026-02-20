@@ -40,12 +40,15 @@ export interface WelcomeMessage extends WsEnvelope {
     seatIndex: number;
     agentId: string;
     state?: Record<string, unknown>;
+    positions?: Array<{ seatIndex: number; position: string }>;
   };
 }
 
 export interface StateMessage extends WsEnvelope {
   type: 'STATE';
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> & {
+    positions?: Array<{ seatIndex: number; position: string }>;
+  };
 }
 
 export interface AckMessage extends WsEnvelope {
@@ -76,7 +79,7 @@ export interface SeatInfo {
 
 export interface TableInfo {
   id: string;
-  variant: 'LHE';
+  variant: 'LIMIT' | 'NL' | 'PL';
   maxSeats: number;
   status: 'open' | 'running' | 'closed';
   seats: SeatInfo[];

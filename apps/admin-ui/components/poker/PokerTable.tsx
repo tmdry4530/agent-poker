@@ -15,6 +15,7 @@ interface LiveState {
   potAmount: number;
   activePlayerIndex: number;
   isHandComplete: boolean;
+  dealerIndex?: number;
   players: Array<{
     id: string;
     chips: number;
@@ -25,6 +26,58 @@ interface LiveState {
   }>;
   winners: string[];
   lastAction?: { agentId: string; action: string; amount?: number };
+}
+
+// Position calculation for 2-8 players
+function getPositions(playerCount: number, dealerIndex: number): Map<number, string> {
+  const positions = new Map<number, string>();
+
+  if (playerCount === 2) {
+    // Heads-up: dealer is SB, other is BB
+    positions.set(dealerIndex, "BTN/SB");
+    positions.set((dealerIndex + 1) % 2, "BB");
+  } else if (playerCount === 3) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+  } else if (playerCount === 4) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+    positions.set((dealerIndex + 3) % playerCount, "CO");
+  } else if (playerCount === 5) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+    positions.set((dealerIndex + 3) % playerCount, "UTG");
+    positions.set((dealerIndex + 4) % playerCount, "CO");
+  } else if (playerCount === 6) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+    positions.set((dealerIndex + 3) % playerCount, "UTG");
+    positions.set((dealerIndex + 4) % playerCount, "HJ");
+    positions.set((dealerIndex + 5) % playerCount, "CO");
+  } else if (playerCount === 7) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+    positions.set((dealerIndex + 3) % playerCount, "UTG");
+    positions.set((dealerIndex + 4) % playerCount, "UTG1");
+    positions.set((dealerIndex + 5) % playerCount, "HJ");
+    positions.set((dealerIndex + 6) % playerCount, "CO");
+  } else if (playerCount >= 8) {
+    positions.set(dealerIndex, "BTN");
+    positions.set((dealerIndex + 1) % playerCount, "SB");
+    positions.set((dealerIndex + 2) % playerCount, "BB");
+    positions.set((dealerIndex + 3) % playerCount, "UTG");
+    positions.set((dealerIndex + 4) % playerCount, "UTG1");
+    positions.set((dealerIndex + 5) % playerCount, "MP");
+    positions.set((dealerIndex + 6) % playerCount, "HJ");
+    positions.set((dealerIndex + 7) % playerCount, "CO");
+  }
+
+  return positions;
 }
 
 // 8-seat positions (percentages): top, top-right, right, bottom-right, bottom, bottom-left, left, top-left
@@ -74,6 +127,11 @@ export function PokerTable({ tableId }: { tableId: string }) {
   // Build 8 seat slots (dynamically from table config)
   const maxSeats = 8;
   const seats: SeatData[] = useMemo(() => {
+    // Count active players for position calculation
+    const activePlayers = rawSeats.filter(s => s && s.agentId).length;
+    const dealerIndex = liveState?.dealerIndex ?? 0;
+    const positionMap = activePlayers > 0 ? getPositions(activePlayers, dealerIndex) : new Map();
+
     return Array.from({ length: maxSeats }, (_, i): SeatData => {
       const raw = rawSeats[i];
       if (!raw || !raw.agentId) {
@@ -106,6 +164,8 @@ export function PokerTable({ tableId }: { tableId: string }) {
           : false,
         isWinner: liveState?.winners.includes(raw.agentId) ?? false,
         status: raw.status ?? "seated",
+        position: positionMap.get(i),
+        hasButton: i === dealerIndex && activePlayers > 0,
       };
     });
   }, [maxSeats, rawSeats, liveState]);

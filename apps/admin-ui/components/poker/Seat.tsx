@@ -13,6 +13,8 @@ export interface SeatData {
   isActive: boolean;
   isWinner: boolean;
   status: "seated" | "empty" | "left";
+  position?: string; // BTN, SB, BB, UTG, etc.
+  hasButton?: boolean; // Dealer button indicator
 }
 
 interface SeatProps {
@@ -53,6 +55,20 @@ export function Seat({ seat, position, betPosition }: SeatProps) {
           )}>
             {isEmpty ? "?" : seat.agentId!.replace("agent-", "").charAt(0).toUpperCase()}
           </div>
+
+          {/* Position Label */}
+          {seat.position && (
+            <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider">
+              {seat.position}
+            </span>
+          )}
+
+          {/* Dealer Button */}
+          {seat.hasButton && (
+            <div className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-zinc-900 border-2 border-zinc-700 shadow-lg">
+              D
+            </div>
+          )}
 
           {/* Name */}
           <span className={cn(

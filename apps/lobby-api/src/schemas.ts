@@ -5,8 +5,11 @@
 import { z } from 'zod';
 
 export const CreateTableBodySchema = z.object({
-  variant: z.string().max(64).optional(),
-  maxSeats: z.number().int().min(2).max(10).optional(),
+  variant: z.enum(['LIMIT', 'NL', 'PL']).optional(),
+  maxSeats: z.number().int().min(2).max(8).optional(),
+  smallBlind: z.number().int().positive().optional(),
+  bigBlind: z.number().int().positive().optional(),
+  ante: z.number().int().min(0).optional(),
 });
 
 export const JoinTableBodySchema = z.object({
@@ -16,8 +19,9 @@ export const JoinTableBodySchema = z.object({
 
 export const MatchmakingQueueBodySchema = z.object({
   agentId: z.string().min(1).max(128),
-  variant: z.string().max(64).optional(),
+  variant: z.enum(['LIMIT', 'NL', 'PL']).optional(),
   blindLevel: z.enum(['micro', 'low', 'mid', 'high']).optional(),
+  maxSeats: z.number().int().min(2).max(8).optional(),
 });
 
 export const CreateAgentBodySchema = z.object({

@@ -13,6 +13,7 @@ interface QueueEntry {
   agentId: string;
   variant: string;
   blindLevel: BlindLevel;
+  maxSeats: number;
   enqueuedAt: number;
 }
 
@@ -29,7 +30,7 @@ export class MatchmakingQueue {
   /**
    * Add an agent to the matchmaking queue.
    */
-  enqueue(agentId: string, variant: string, blindLevel: BlindLevel): void {
+  enqueue(agentId: string, variant: string, blindLevel: BlindLevel, maxSeats = 8): void {
     // Check if already in queue
     if (this.queue.some((e) => e.agentId === agentId)) {
       throw new Error('Agent already in queue');
@@ -39,11 +40,12 @@ export class MatchmakingQueue {
       agentId,
       variant,
       blindLevel,
+      maxSeats,
       enqueuedAt: Date.now(),
     };
 
     this.queue.push(entry);
-    logger.info({ agentId, variant, blindLevel, queueSize: this.queue.length }, 'Agent joined matchmaking queue');
+    logger.info({ agentId, variant, blindLevel, maxSeats, queueSize: this.queue.length }, 'Agent joined matchmaking queue');
 
     // Try to match
     this.tryMatch();
@@ -92,11 +94,11 @@ export class MatchmakingQueue {
       return;
     }
 
-    // Group by variant + blindLevel
+    // Group by variant + blindLevel + maxSeats
     const groups = new Map<string, QueueEntry[]>();
 
     for (const entry of this.queue) {
-      const key = `${entry.variant}:${entry.blindLevel}`;
+      const key = `${entry.variant}:${entry.blindLevel}:${entry.maxSeats}`;
       if (!groups.has(key)) {
         groups.set(key, []);
       }

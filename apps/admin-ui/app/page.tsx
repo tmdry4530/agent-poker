@@ -111,10 +111,13 @@ export default function DashboardPage() {
                         <div>
                           <p className="text-sm font-mono font-medium">{table.id.slice(0, 8)}...</p>
                           <p className="text-xs text-muted-foreground">
-                            {table.variant} &middot; {formatTimestamp(table.createdAt)}
+                            {table.variant} &middot; {table.maxSeats ?? 2}-max &middot; {formatTimestamp(table.createdAt)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {table.seats.filter((s) => s.agentId).length}/{table.maxSeats ?? 2}
+                          </span>
                           <span className="text-xs text-muted-foreground font-mono">
                             {table.handsPlayed} hands
                           </span>

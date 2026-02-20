@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { ActionType, type PlayerAction, PokerError } from '@agent-poker/poker-engine';
+import { ActionType, type PlayerAction, PokerError, assignPositions } from '@agent-poker/poker-engine';
 import { TableActor } from './table-actor.js';
 import { PROTOCOL_VERSION, type WsEnvelope } from './types.js';
 import { logger } from './logger.js';
@@ -386,6 +386,16 @@ export class GameServerWs {
 
     // Send WELCOME
     const state = table.getState();
+    const sanitizedState = state ? sanitizeStateForPlayer(state, payload.agentId) : undefined;
+
+    // Add position assignments if state exists
+    let positions: any[] | undefined;
+    if (state) {
+      const activeSeatIndices = state.players.map((p: any) => p.seatIndex);
+      const positionAssignments = assignPositions(activeSeatIndices, state.dealerSeatIndex);
+      positions = positionAssignments;
+    }
+
     this.send(ws, {
       protocolVersion: PROTOCOL_VERSION,
       type: 'WELCOME',
@@ -393,7 +403,8 @@ export class GameServerWs {
         tableId,
         seatIndex: seat.seatIndex,
         agentId: payload.agentId,
-        state: state ? sanitizeStateForPlayer(state, payload.agentId) : undefined,
+        state: sanitizedState,
+        ...(positions ? { positions } : {}),
         ...(deltaEvents && deltaEvents.length > 0 ? { deltaEvents } : {}),
         ...(fullResync ? { fullResync: true } : {}),
         latestEventId: eventBuffer?.getLatestEventId() ?? 0,
@@ -534,13 +545,20 @@ export class GameServerWs {
   }
 
   broadcastState(tableId: string, state: any): void {
+    // Compute position assignments once
+    const activeSeatIndices = state.players.map((p: any) => p.seatIndex);
+    const positions = assignPositions(activeSeatIndices, state.dealerSeatIndex);
+
     for (const [, client] of this.clients) {
       if (client.tableId === tableId) {
         const sanitized = sanitizeStateForPlayer(state, client.agentId);
         this.send(client.ws, {
           protocolVersion: PROTOCOL_VERSION,
           type: 'STATE',
-          payload: sanitized,
+          payload: {
+            ...sanitized,
+            positions,
+          },
         });
       }
     }

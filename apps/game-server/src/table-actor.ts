@@ -8,15 +8,21 @@ import {
   type GameEvent,
   type PlayerAction,
   type PlayerSetup,
+  type GameConfig,
   ActionType,
   PokerError,
   DEFAULT_CONFIG,
+  DEFAULT_NL_CONFIG,
+  DEFAULT_PL_CONFIG,
+  BettingMode,
 } from '@agent-poker/poker-engine';
 import type { SeatInfo, TableInfo } from './types.js';
 
 export interface TableActorOptions {
   tableId: string;
   maxSeats?: number;
+  variant?: 'LIMIT' | 'NL' | 'PL';
+  config?: GameConfig;
   actionTimeoutMs?: number;
   onEvent?: (tableId: string, event: GameEvent) => void;
   onHandComplete?: (tableId: string, handId: string, events: GameEvent[], state: GameState) => void;
@@ -26,6 +32,8 @@ export interface TableActorOptions {
 export class TableActor {
   readonly tableId: string;
   readonly maxSeats: number;
+  readonly variant: 'LIMIT' | 'NL' | 'PL';
+  readonly config: GameConfig;
   private seats: SeatInfo[] = [];
   private currentState: GameState | null = null;
   private handEvents: GameEvent[] = [];
@@ -51,6 +59,24 @@ export class TableActor {
   constructor(options: TableActorOptions) {
     this.tableId = options.tableId;
     this.maxSeats = options.maxSeats ?? 8;
+    this.variant = options.variant ?? 'LIMIT';
+
+    // Set config based on variant if not explicitly provided
+    if (options.config) {
+      this.config = options.config;
+    } else {
+      switch (this.variant) {
+        case 'NL':
+          this.config = DEFAULT_NL_CONFIG;
+          break;
+        case 'PL':
+          this.config = DEFAULT_PL_CONFIG;
+          break;
+        default:
+          this.config = DEFAULT_CONFIG;
+      }
+    }
+
     this.actionTimeoutMs = options.actionTimeoutMs ?? 5000;
     this.options = options;
   }
@@ -58,7 +84,7 @@ export class TableActor {
   getInfo(): TableInfo {
     return {
       id: this.tableId,
-      variant: 'LHE',
+      variant: this.variant,
       maxSeats: this.maxSeats,
       status: this.status,
       seats: [...this.seats],
@@ -145,7 +171,7 @@ export class TableActor {
       playerSetups,
       this.dealerSeatIndex,
       rng,
-      DEFAULT_CONFIG,
+      this.config,
     );
 
     this.currentState = state;

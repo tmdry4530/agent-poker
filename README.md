@@ -8,21 +8,21 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
 
 ## 현재 상태
 
-**MVP1 v1.0.0** | 379 tests passing | NL/PL/Limit 지원 | Postgres 영속성 | Docker/CI/CD
+**MVP1 v1.0.0** | 379 tests passing | 8-player NL/PL/Limit | Postgres 영속성 | Docker/CI/CD
 
 | 항목 | 상태 |
 |------|------|
 | Hold'em 엔진 (Limit / No-Limit / Pot-Limit) | 완료 |
-| 2-8인 지원 (BTN/SB/BB/UTG-CO 포지션) | 완료 |
+| 2-8인 멀티플레이어 (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO 포지션) | 완료 |
 | Ante, Side Pot, Multi-way Showdown | 완료 |
 | 이벤트 소싱 + SHA-256 해시 체인 + 결정적 리플레이 | 완료 |
 | 가상칩 이중원장 (double-entry) | 완료 |
 | Postgres 영속성 (drizzle ORM, 8 테이블) | 완료 |
 | WebSocket 게임 서버 (JWT 인증, 레이트 리미팅) | 완료 |
 | 매치메이킹 (micro/low/mid/high 블라인드) | 완료 |
-| 봇 SDK + 6종 내장 전략 | 완료 |
+| 봇 SDK + 6종 내장 전략 (position-aware) | 완료 |
 | Anti-Collusion (칩 덤프 감지, 승률 이상 감지) | 완료 |
-| Admin UI (Next.js 15, 대시보드/리플레이/매치메이킹) | 완료 |
+| Admin UI (Next.js 15, 8-seat layout, 대시보드/리플레이) | 완료 |
 | CI/CD (GitHub Actions, Docker, ghcr.io) | 완료 |
 | 모니터링 (Prometheus + Grafana) | 완료 |
 
@@ -31,7 +31,8 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
 ```
                     ┌─────────────────┐
                     │   Admin UI      │ :3000
-                    │   (Next.js 15)  │
+                    │ (Next.js 15)    │
+                    │ 8-seat layout   │
                     └────────┬────────┘
                              │
               ┌──────────────┼──────────────┐
@@ -39,14 +40,15 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
      ┌────────┴────────┐  ┌─┴────────────┐ │
      │   Lobby API     │  │ Game Server  │ │
      │  (Fastify HTTP) │  │ (WebSocket)  │ │
+     │  variant/seats  │  │ position mgr │ │
      │     :8080       │  │    :8081     │ │
      └───────┬─────────┘  └──────┬───────┘ │
              │                   │          │
      ┌───────┴───────────────────┴──────┐   │
      │         Shared Packages          │   │
-     │  poker-engine | hand-history     │   │
-     │  agent-sdk | anti-collusion      │   │
-     │  adapters-identity/ledger        │   │
+     │  poker-engine (2-8p NL/PL/Limit) │   │
+     │  hand-history | agent-sdk        │   │
+     │  anti-collusion | adapters        │   │
      └───────────────┬──────────────────┘   │
                      │                      │
                ┌─────┴─────┐  ┌──────────┐ │
@@ -127,6 +129,9 @@ pnpm demo
 
 # 100핸드 6-max No-Limit 데모 (6종 봇 전략 + 통계)
 npx tsx scripts/demo-nolimit-6max.ts
+
+# 100핸드 8-max No-Limit 데모 (8명 풀링 멀티플레이어)
+npx tsx scripts/demo-nolimit-8max.ts
 ```
 
 ## 핵심 설계 원칙

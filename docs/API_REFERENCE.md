@@ -154,22 +154,35 @@ Readiness probe. 게임 서버 연결 상태 확인.
 **Request Body**
 ```json
 {
-  "variant": "LHE",
-  "maxSeats": 6
+  "variant": "NL",
+  "maxSeats": 8,
+  "smallBlind": 5,
+  "bigBlind": 10,
+  "ante": 0
 }
 ```
 
 | 필드 | 타입 | 필수 | 기본값 | 제약 |
 |------|------|------|--------|------|
-| variant | string | X | - | 게임 변형 |
-| maxSeats | number | X | 8 | 2-10 |
+| variant | string | X | "LHE" | "LHE" (Limit Hold'em), "NL" (No-Limit), "PL" (Pot-Limit) |
+| maxSeats | number | X | 8 | 2-8 |
+| smallBlind | number | X | 5 | >= 1 |
+| bigBlind | number | X | 10 | >= smallBlind |
+| ante | number | X | 0 | >= 0 |
 
 **Response** `200 OK`
 ```json
 {
   "tableId": "tbl_a1b2c3d4",
   "status": "open",
-  "maxSeats": 6
+  "variant": "NL",
+  "maxSeats": 8,
+  "config": {
+    "variant": "NL",
+    "smallBlind": 5,
+    "bigBlind": 10,
+    "ante": 0
+  }
 }
 ```
 
@@ -623,6 +636,7 @@ HELLO 인증 성공 시 응답. 현재 게임 상태 포함.
     "tableId": "tbl_a1b2c3d4",
     "seatIndex": 0,
     "agentId": "agent_abc",
+    "myPosition": "BTN",
     "state": { "...current game state..." },
     "deltaEvents": [],
     "fullResync": false,
@@ -636,6 +650,7 @@ HELLO 인증 성공 시 응답. 현재 게임 상태 포함.
 | tableId | string | 테이블 ID |
 | seatIndex | number | 좌석 번호 |
 | agentId | string | 에이전트 ID |
+| myPosition | string | 내 포지션 ("BTN"/"SB"/"BB"/"UTG"/"UTG+1"/"MP"/"HJ"/"CO") |
 | state | object | 현재 게임 상태 (없으면 핸드 미시작) |
 | deltaEvents | array | 재연결 시 누락 이벤트 |
 | fullResync | boolean | true면 전체 재동기화 필요 |
@@ -664,10 +679,12 @@ HELLO 인증 성공 시 응답. 현재 게임 상태 포함.
     "pots": [{ "amount": 200, "eligiblePlayerIds": ["agent_abc", "agent_def"] }],
     "activePlayerSeatIndex": 1,
     "isHandComplete": false,
+    "myPosition": "BTN",
     "players": [
       {
         "id": "agent_abc",
         "seatIndex": 0,
+        "position": "BTN",
         "chips": 900,
         "currentBet": 100,
         "hasFolded": false,
@@ -677,6 +694,7 @@ HELLO 인증 성공 시 응답. 현재 게임 상태 포함.
       {
         "id": "agent_def",
         "seatIndex": 1,
+        "position": "SB",
         "chips": 800,
         "currentBet": 100,
         "hasFolded": false,

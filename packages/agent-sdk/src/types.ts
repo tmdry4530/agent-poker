@@ -17,6 +17,7 @@ export interface OpponentInfo {
   currentBet: number;
   hasFolded: boolean;
   isAllIn: boolean;
+  position?: string; // 'BTN' | 'SB' | 'BB' | 'UTG' | 'UTG+1' | 'MP' | 'HJ' | 'CO'
 }
 
 export interface VisibleGameState {
@@ -46,6 +47,10 @@ export interface VisibleGameState {
     minRaise: number;
     maxRaise: number;
   };
+  /** My position at the table (8-player support) */
+  myPosition?: string; // 'BTN' | 'SB' | 'BB' | 'UTG' | 'UTG+1' | 'MP' | 'HJ' | 'CO'
+  /** Position mapping for all seats (seatIndex → position) */
+  positions?: Record<number, string> | undefined;
   // HU backward-compat (deprecated)
   opponentId?: string | undefined;
   opponentChips?: number | undefined;

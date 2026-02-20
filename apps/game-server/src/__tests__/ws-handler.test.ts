@@ -28,7 +28,7 @@ describe('TableActor', () => {
   it('creates a table with correct initial state', () => {
     const info = table.getInfo();
     expect(info.id).toBe('test-table');
-    expect(info.variant).toBe('LHE');
+    expect(info.variant).toBe('LIMIT');
     expect(info.maxSeats).toBe(4);
     expect(info.status).toBe('open');
     expect(info.seats).toHaveLength(0);

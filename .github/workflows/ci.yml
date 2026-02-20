@@ -62,3 +62,7 @@ jobs:
       - name: E2E smoke test (demo 20 hands)
         run: pnpm demo
         timeout-minutes: 5
+
+      - name: E2E smoke test (8-max NL, 100 hands)
+        run: pnpm demo:8max
+        timeout-minutes: 5
