@@ -12,6 +12,11 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.retention.time=30d'
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - monitoring
 
@@ -30,8 +35,14 @@ services:
       - grafana_data:/var/lib/grafana
     ports:
       - "3001:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
     networks:
       - monitoring
 

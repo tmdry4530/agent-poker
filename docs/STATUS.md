@@ -111,7 +111,7 @@
 - None (MVP1 scope fully delivered)
 
 ## Quality Gates
-- Tests: **PASS** (198+ tests, 0 failures)
+- Tests: **PASS** (215 tests across 14 files, 0 failures)
 - Lint: **PASS** (all packages)
 - Build: **PASS** (all packages)
 - Local run: **YES** (demo scripts + docker compose)
@@ -122,14 +122,14 @@
 
 | Package | Tests | Build | Status |
 |---------|-------|-------|--------|
-| poker-engine | 40+ | OK | NL/PL/Limit + ante + 2-8인 |
-| hand-history | 10+ | OK | SHA-256 hash chain |
-| adapters-ledger | 22+ | OK | Double-entry ledger |
-| adapters-identity | 9+ | OK | JWT + API key |
-| agent-sdk | 10+ | OK | 6종 내장 봇 |
-| anti-collusion | 10+ | OK | Chip dump + win rate |
-| database | 10+ | OK | Drizzle ORM, 8 tables |
+| poker-engine | 92 | OK | NL/PL/Limit + ante + 2-8인 (6 test files) |
+| hand-history | 31 | OK | SHA-256 hash chain + replay (2 test files) |
+| adapters-ledger | 22 | OK | Double-entry ledger |
+| adapters-identity | 9 | OK | JWT + API key |
+| agent-sdk | 38 | OK | 6종 내장 봇 (3 test files) |
+| anti-collusion | - | OK | Chip dump + win rate (no tests yet) |
+| database | 23 | OK | Drizzle ORM, 8 tables |
 | game-server | - | OK | WS + JWT + rate limit |
 | lobby-api | - | OK | HTTP + matchmaking |
 | admin-ui | - | OK | Next.js 15 dashboard |
-| **Total** | **198+** | **All OK** | |
+| **Total** | **215** | **All OK** | |

@@ -1,14 +1,16 @@
 # --- Build stage ---
 FROM node:20-slim AS build
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 WORKDIR /app
 
 # Copy workspace root manifests
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 
-# Copy all package manifests (for dependency resolution)
+# Copy all workspace package manifests (pnpm needs all for lockfile resolution)
+COPY apps/lobby-api/package.json apps/lobby-api/
+COPY apps/game-server/package.json apps/game-server/
 COPY apps/admin-ui/package.json apps/admin-ui/
 COPY packages/poker-engine/package.json packages/poker-engine/
 COPY packages/hand-history/package.json packages/hand-history/
@@ -16,6 +18,7 @@ COPY packages/agent-sdk/package.json packages/agent-sdk/
 COPY packages/database/package.json packages/database/
 COPY packages/adapters-identity/package.json packages/adapters-identity/
 COPY packages/adapters-ledger/package.json packages/adapters-ledger/
+COPY packages/anti-collusion/package.json packages/anti-collusion/
 
 # Install all dependencies
 RUN pnpm install --frozen-lockfile

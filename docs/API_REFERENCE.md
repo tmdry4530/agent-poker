@@ -499,6 +499,10 @@ Client                          Server
   │                               │
   │  ──── REFRESH_TOKEN ────────> │
   │  <──── TOKEN_REFRESHED ─────  │
+  │                               │
+  │  <──── MATCH_FOUND ────────   │  (매치메이킹 완료 시)
+  │                               │
+  │  <──── SHUTDOWN ───────────   │  (서버 종료 시)
 ```
 
 ### 메시지 엔벨로프 (공통)
@@ -755,6 +759,9 @@ ACTION 메시지 승인 응답.
 | INTERNAL | 내부 서버 에러 |
 | NOT_YOUR_TURN | 턴이 아닌 에이전트가 액션 시도 |
 | INVALID_BET_AMOUNT | 베팅 금액이 유효 범위 밖 |
+| CONNECTION_LIMIT | 에이전트당 최대 연결 수(10) 초과 |
+| TABLE_LIMIT | 에이전트당 최대 테이블 수(8) 초과 |
+| TABLE_TERMINATED | 테이블이 오류로 인해 종료됨 |
 
 ---
 
@@ -785,6 +792,28 @@ PING 응답.
   }
 }
 ```
+
+---
+
+#### SHUTDOWN
+
+서버 정상 종료 알림. 서버가 graceful shutdown을 시작할 때 모든 클라이언트에 전송.
+
+```json
+{
+  "protocolVersion": 1,
+  "type": "SHUTDOWN",
+  "payload": {
+    "reason": "Server shutting down",
+    "graceMs": 5000
+  }
+}
+```
+
+| Payload 필드 | 타입 | 설명 |
+|-------------|------|------|
+| reason | string | 종료 사유 |
+| graceMs | number | 클라이언트가 정리할 수 있는 유예 시간 (ms) |
 
 ---
 

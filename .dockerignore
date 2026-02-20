@@ -1,0 +1,15 @@
+node_modules
+.git
+.github
+.omc
+.agents
+.claude
+*.md
+!README.md
+.env*
+.vscode
+.idea
+coverage
+.next
+dist
+monitoring

@@ -17,6 +17,14 @@ services:
     networks:
       - internal
 
+  # Redis is provisioned for production use but NOT used in MVP1 application code.
+  # Current status:
+  #   - rate-limiter.ts: uses InMemoryStore by default (RateLimiterStore interface is Redis-ready)
+  #   - matchmaking.ts: uses in-memory queue (MatchmakingQueue class)
+  # Future use (MVP2+):
+  #   - Replace InMemoryStore with RedisStore for distributed rate limiting
+  #   - Replace in-memory matchmaking with Redis-backed pub/sub queue
+  #   - Session store for WebSocket reconnection state
   redis:
     image: redis:7-alpine
     container_name: agent-poker-redis
@@ -45,6 +53,12 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
       REDIS_URL: redis://redis:6379
       PORT: 8080
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,6 +80,12 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
       REDIS_URL: redis://redis:6379
       PORT: 8081
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const s=require('net').connect(8081,'localhost',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,8 +104,18 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_LOBBY_API_URL: http://lobby-api:8080
-      NEXT_PUBLIC_GAME_SERVER_URL: ws://game-server:8081
+      # Browser-accessible URLs (NEXT_PUBLIC_ vars are embedded at build time for client JS)
+      NEXT_PUBLIC_LOBBY_API_URL: http://localhost:8080
+      NEXT_PUBLIC_GAME_SERVER_URL: ws://localhost:8081
+      # Internal Docker network URLs (for server-side API calls / SSR proxy)
+      INTERNAL_LOBBY_API_URL: http://lobby-api:8080
+      INTERNAL_GAME_SERVER_URL: ws://game-server:8081
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       - lobby-api
       - game-server
