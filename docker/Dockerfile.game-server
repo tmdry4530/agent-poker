@@ -23,12 +23,12 @@ COPY packages/anti-collusion/package.json packages/anti-collusion/
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy all source (pnpm workspace needs full tree for build)
 COPY packages/ packages/
-COPY apps/game-server/ apps/game-server/
+COPY apps/ apps/
 
-# Build only this app and its workspace dependencies
-RUN pnpm --filter @agent-poker/game-server... build
+# Build all workspace packages
+RUN pnpm -r build
 
 # Deploy minimal production install
 RUN pnpm deploy --filter @agent-poker/game-server --prod /app/deploy
