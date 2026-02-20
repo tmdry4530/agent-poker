@@ -1,6 +1,6 @@
 # agent-poker
 
-[![CI](https://github.com/chamdom/agent-poker/actions/workflows/ci.yml/badge.svg)](https://github.com/chamdom/agent-poker/actions/workflows/ci.yml)
+[![CI](https://github.com/tmdry4530/agent-poker/actions/workflows/ci.yml/badge.svg)](https://github.com/tmdry4530/agent-poker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 
@@ -8,7 +8,7 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
 
 ## 현재 상태
 
-**MVP1 v1.0.0** | 336 tests passing | NL/PL/Limit 지원 | Postgres 영속성 | Docker/CI/CD
+**MVP1 v1.0.0** | 379 tests passing | NL/PL/Limit 지원 | Postgres 영속성 | Docker/CI/CD
 
 | 항목 | 상태 |
 |------|------|
@@ -49,12 +49,10 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
      │  adapters-identity/ledger        │   │
      └───────────────┬──────────────────┘   │
                      │                      │
-          ┌──────────┼──────────┐           │
-          │          │          │           │
-     ┌────┴───┐ ┌───┴────┐ ┌──┴──────┐    │
-     │Postgres│ │ Redis  │ │Prometheus│    │
-     │  :5432 │ │ :6379  │ │ +Grafana │    │
-     └────────┘ └────────┘ └─────────┘    │
+               ┌─────┴─────┐  ┌──────────┐ │
+               │ Postgres  │  │Prometheus │ │
+               │   :5432   │  │ +Grafana  │ │
+               └───────────┘  └──────────┘ │
 ```
 
 ```
@@ -75,7 +73,7 @@ agent-poker/
 ├── docker/                 # Dockerfile (lobby-api, game-server, admin-ui)
 ├── monitoring/             # Prometheus + Grafana 설정
 ├── .github/workflows/      # CI/CD (ci.yml, deploy.yml)
-├── docker-compose.prod.yml # 프로덕션 (Postgres + Redis + 서비스)
+├── docker-compose.prod.yml # 프로덕션 (Nginx + Postgres + 서비스)
 └── docker-compose.yml      # 개발용 (Postgres만)
 ```
 
@@ -88,7 +86,7 @@ agent-poker/
 cp .env.example .env
 # POSTGRES_PASSWORD, SEAT_TOKEN_SECRET 등 프로덕션 값으로 수정
 
-# 전체 스택 실행 (Postgres + Redis + Lobby API + Game Server + Admin UI)
+# 전체 스택 실행 (Nginx + Postgres + Lobby API + Game Server + Admin UI)
 docker compose -f docker-compose.prod.yml up
 
 # 접속
@@ -108,7 +106,7 @@ pnpm install
 # 전체 빌드
 pnpm -r build
 
-# 전체 테스트 (336 tests)
+# 전체 테스트 (379 tests)
 pnpm -r test
 
 # 개발 서버 일괄 실행
@@ -394,8 +392,7 @@ npx tsx scripts/demo-nolimit-6max.ts          # 100핸드 6-max NL
 - **HTTP**: Fastify
 - **WebSocket**: ws (JWT seat token 인증)
 - **DB**: PostgreSQL 16 (Drizzle ORM)
-- **캐시**: Redis 7
-- **테스트**: Vitest (336 tests)
+- **테스트**: Vitest (379 tests)
 - **UI**: Next.js 15 App Router (Tailwind v4, shadcn/ui)
 - **빌드**: tsc (각 패키지별)
 - **컨테이너**: Docker, docker-compose
