@@ -1,12 +1,12 @@
 /**
- * E2E Integration Test: 8-player full hand flow
+ * E2E Integration Test: 6-player full hand flow
  *
- * Boots lobby-api + game-server in-process, registers 8 agents,
- * creates an 8-max No-Limit table, joins via HTTP, plays 5 hands, and verifies:
- * - Chip conservation across 8 players
+ * Boots lobby-api + game-server in-process, registers 6 agents,
+ * creates a 6-max No-Limit table, joins via HTTP, plays 5 hands, and verifies:
+ * - Chip conservation across 6 players
  * - Hash chain integrity
  * - Proper event sequence
- * - Position rotation for 8 seats
+ * - Position rotation for 6 seats
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -35,7 +35,7 @@ import { registerRoutes } from '@agent-poker/lobby-api';
 const NUM_HANDS = 5;
 const STARTING_CHIPS = 500;
 const SEED = 88;
-const NUM_PLAYERS = 8;
+const NUM_PLAYERS = 6;
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -69,10 +69,10 @@ function playHandToCompletion(state: GameState, rng: () => number): { finalState
 }
 
 // ══════════════════════════════════════════════════════════════
-// E2E: 8-player full game flow via HTTP + in-process engine
+// E2E: 6-player full game flow via HTTP + in-process engine
 // ══════════════════════════════════════════════════════════════
 
-describe('E2E: 8-player full hand flow via HTTP API', () => {
+describe('E2E: 6-player full hand flow via HTTP API', () => {
   let app: FastifyInstance;
   let gameServer: any;
   let tableId: string;
@@ -102,8 +102,8 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
     await app.close();
   });
 
-  it('registers 8 agents via HTTP', async () => {
-    const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta'];
+  it('registers 6 agents via HTTP', async () => {
+    const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'];
 
     for (const name of names) {
       const res = await app.inject({
@@ -120,11 +120,11 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
     expect(agentIds).toHaveLength(NUM_PLAYERS);
   });
 
-  it('creates an 8-max table via HTTP', async () => {
+  it('creates a 6-max table via HTTP', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/tables',
-      payload: { maxSeats: 8 },
+      payload: { maxSeats: 6 },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
@@ -132,7 +132,7 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
     tableId = body.tableId;
   });
 
-  it('joins 8 agents to the table via HTTP', async () => {
+  it('joins 6 agents to the table via HTTP', async () => {
     for (let i = 0; i < NUM_PLAYERS; i++) {
       const joinRes = await app.inject({
         method: 'POST',
@@ -143,14 +143,14 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
       expect(joinRes.json().seatToken).toBeDefined();
     }
 
-    // Verify all 8 seats are taken
+    // Verify all 6 seats are taken
     const table = gameServer.getTable(tableId)!;
     const seats = table.getSeats();
     const seatedCount = seats.filter((s: any) => s.status === 'seated').length;
     expect(seatedCount).toBe(NUM_PLAYERS);
   });
 
-  it('plays 5 hands with chip conservation (8 players)', async () => {
+  it('plays 5 hands with chip conservation (6 players)', async () => {
     const table = gameServer.getTable(tableId)!;
     expect(table).toBeDefined();
     expect(table.canStartHand()).toBe(true);
@@ -203,7 +203,7 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
     expect(table.getHandsPlayed()).toBe(NUM_HANDS);
   });
 
-  it('verifies hand history is recorded (8 players)', async () => {
+  it('verifies hand history is recorded (6 players)', async () => {
     const table = gameServer.getTable(tableId)!;
     const history = table.getHandHistory();
     expect(history).toHaveLength(NUM_HANDS);
@@ -217,7 +217,7 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
     }
   });
 
-  it('verifies position rotation across 8 seats', async () => {
+  it('verifies position rotation across 6 seats', async () => {
     const table = gameServer.getTable(tableId)!;
     const history = table.getHandHistory();
 
@@ -228,7 +228,7 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
       expect(hand.handId).toBeDefined();
     }
 
-    // With 5 hands and 8 seats, we expect some position diversity
+    // With 5 hands and 6 seats, we expect some position diversity
     expect(history.length).toBe(NUM_HANDS);
   });
 
@@ -262,11 +262,11 @@ describe('E2E: 8-player full hand flow via HTTP API', () => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// E2E: Pure engine — 8-player hash chain integrity
+// E2E: Pure engine — 6-player hash chain integrity
 // ══════════════════════════════════════════════════════════════
 
-describe('E2E: Hash chain integrity over 5 hands (8 players)', () => {
-  it('builds and verifies hash chain for each hand with 8 players', () => {
+describe('E2E: Hash chain integrity over 5 hands (6 players)', () => {
+  it('builds and verifies hash chain for each hand with 6 players', () => {
     const masterRng = createSeededRng(SEED);
     const players: PlayerSetup[] = Array.from({ length: NUM_PLAYERS }, (_, i) => ({
       id: `player-${i}`,
@@ -327,7 +327,7 @@ describe('E2E: Hash chain integrity over 5 hands (8 players)', () => {
     expect(totalChips).toBe(STARTING_CHIPS * NUM_PLAYERS);
   });
 
-  it('maintains chip conservation across 5 hands with 8 players', () => {
+  it('maintains chip conservation across 5 hands with 6 players', () => {
     const masterRng = createSeededRng(99);
     let chips = Array(NUM_PLAYERS).fill(STARTING_CHIPS);
     let dealerSeatIndex = 0;

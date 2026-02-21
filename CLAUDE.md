@@ -7,7 +7,7 @@
 - Web2 기반 (온체인/웹3 기능 없음)
 - 가상머니/칩 (현금 가치/환전/토큰화 금지)
 - 최소 UI (인간용 UI는 비목표)
-- 목표: 2-8 에이전트가 로컬에서 핸드 N개를 안정적으로 진행 + 로그/리플레이/정산
+- 목표: 2-6 에이전트가 로컬에서 핸드 N개를 안정적으로 진행 + 로그/리플레이/정산
 - 베팅 모드: Limit, No-Limit, Pot-Limit Hold'em + ante 지원
 
 ### MVP2 (최종)
@@ -39,8 +39,8 @@
    - **Pot-Limit**: maxRaise = call + current pot (pot-size raise)
    - 모든 모드에서 칩 보존 불변조건 강제 (totalChips before == totalChips after)
    - Ante는 config.ante로 설정, 딜 시점에 자동 징수
-7. **멀티플레이어 불변조건 (2-8인)**
-   - 포지션: BTN, SB, BB, UTG, UTG+1, MP, HJ, CO (인원에 따라 동적)
+7. **멀티플레이어 불변조건 (2-6인)**
+   - 포지션: BTN, SB, BB, UTG, HJ, CO (인원에 따라 동적)
    - 사이드 팟: 올인 시 자동 분리, 각 팟별 독립 정산
    - 쇼다운: 멀티웨이 핸드 평가, 동률 시 균등 분배
 
@@ -102,7 +102,7 @@ pnpm drizzle-kit push            # 스키마 직접 푸시 (dev)
 ### 데모 / 테스트 스크립트
 ```bash
 pnpm demo                                   # 20핸드 HU Limit E2E
-npx tsx scripts/demo-nolimit-6max.ts         # 100핸드 6-max NL
+npx tsx scripts/demo-6max-nolimit.ts         # 100핸드 6-max NL
 npx tsx scripts/integration-test.ts          # 통합 테스트
 npx tsx scripts/benchmark.ts                 # 벤치마크
 ```

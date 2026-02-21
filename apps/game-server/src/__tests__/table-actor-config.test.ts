@@ -77,7 +77,7 @@ describe('TableActor config pipeline', () => {
     const actor = new TableActor({
       tableId: 'test-hand',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
     // Add 2 players

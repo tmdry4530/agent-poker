@@ -107,7 +107,7 @@ describe('Lobby API Routes', () => {
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.maxSeats).toBe(8); // default
+      expect(body.maxSeats).toBe(6); // default
     });
 
     it('POST /api/tables rejects invalid maxSeats', async () => {

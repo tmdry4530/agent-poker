@@ -1,7 +1,7 @@
 /**
- * Position & seat rotation utilities for 2-8 player poker.
+ * Position & seat rotation utilities for 2-6 player poker.
  *
- * Seat indices are 0-7 and may be non-contiguous (empty seats allowed).
+ * Seat indices are 0-5 and may be non-contiguous (empty seats allowed).
  * All functions are pure — no side effects.
  */
 
@@ -10,7 +10,7 @@ export interface PositionAssignment {
   position: Position;
 }
 
-export type Position = 'BTN' | 'SB' | 'BB' | 'UTG' | 'UTG1' | 'MP' | 'MP1' | 'HJ' | 'CO';
+export type Position = 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO';
 
 const POSITION_ORDER_BY_COUNT: Record<number, Position[]> = {
   2: ['BTN', 'BB'],           // HU: BTN=SB
@@ -18,14 +18,12 @@ const POSITION_ORDER_BY_COUNT: Record<number, Position[]> = {
   4: ['BTN', 'SB', 'BB', 'UTG'],
   5: ['BTN', 'SB', 'BB', 'UTG', 'CO'],
   6: ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'],
-  7: ['BTN', 'SB', 'BB', 'UTG', 'MP', 'HJ', 'CO'],
-  8: ['BTN', 'SB', 'BB', 'UTG', 'UTG1', 'MP', 'HJ', 'CO'],
 };
 
 /**
  * Assign positional labels starting from the dealer seat, clockwise.
  *
- * @param activeSeatIndices - sorted seat indices of active players (2-8)
+ * @param activeSeatIndices - sorted seat indices of active players (2-6)
  * @param dealerSeatIndex  - which seat holds the dealer button
  * @returns position assignments in clockwise order starting from BTN
  */
@@ -34,7 +32,7 @@ export function assignPositions(
   dealerSeatIndex: number,
 ): PositionAssignment[] {
   const n = activeSeatIndices.length;
-  if (n < 2 || n > 8) throw new Error(`Need 2-8 players, got ${n}`);
+  if (n < 2 || n > 6) throw new Error(`Need 2-6 players, got ${n}`);
 
   const positions = POSITION_ORDER_BY_COUNT[n]!;
   const sorted = [...activeSeatIndices].sort((a, b) => a - b);

@@ -11,19 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 8-player multiplayer support with dynamic position assignment (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO)
+- 6-max multiplayer support with dynamic position assignment (BTN/SB/BB/UTG/HJ/CO)
 - Position fields in WELCOME and STATE WebSocket messages (myPosition, positions array)
-- Table creation with variant selector (LHE/NL/PL) and maxSeats parameter (2-8)
+- Table creation with variant selector (LHE/NL/PL) and maxSeats parameter (2-6)
 - GameConfig pipeline in TableActor for variant-specific rules
-- 8-seat oval layout in Admin UI PokerTable component
+- 6-seat oval layout in Admin UI PokerTable component
 - Position-aware bot strategies in agent-sdk
-- 8-max NL demo script with 8 bots × 100 hands
-- E2E integration tests for 8-player scenarios
+- 6-max NL demo script with 6 bots × 100 hands
+- E2E integration tests for 6-player scenarios
 
 ### Changed
 
 - Updated poker-engine to support configurable game variants (Limit/No-Limit/Pot-Limit)
-- Enhanced matchmaking to group players for 8-max tables
+- Enhanced matchmaking to group players for 6-max tables
 - Updated agent-sdk VisibleGameState with position information
 - Improved Admin UI table creation form with variant and maxSeats controls
 
@@ -41,7 +41,7 @@ MVP1 release: Agent-only poker platform with virtual chips, deterministic replay
 - No-Limit Hold'em with minRaise/maxRaise and all-in support
 - Pot-Limit Hold'em with pot-size raise cap
 - Configurable ante support
-- 2-8 player multiplayer with dynamic positions (BTN/SB/BB/UTG-CO)
+- 2-6 player multiplayer with dynamic positions (BTN/SB/BB/UTG-CO)
 - Side pot automatic splitting and multiway showdown
 - Chip conservation invariant enforcement
 - Deterministic RNG (mulberry32 seed)

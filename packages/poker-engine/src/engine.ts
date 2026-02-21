@@ -68,7 +68,7 @@ export function createInitialState(
   config: GameConfig = DEFAULT_CONFIG,
 ): { state: GameState; events: GameEvent[] } {
   const n = players.length;
-  if (n < 2 || n > 8) throw new Error(`Need 2-8 players, got ${n}`);
+  if (n < 2 || n > 6) throw new Error(`Need 2-6 players, got ${n}`);
 
   const deck = shuffleDeck(createDeck(), rng);
   const events: GameEvent[] = [];

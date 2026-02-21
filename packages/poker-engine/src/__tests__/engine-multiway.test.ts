@@ -118,18 +118,18 @@ describe('multiway games - 6 players', () => {
   });
 });
 
-describe('multiway games - 8 players', () => {
-  it('creates valid 8-player initial state', () => {
-    const { state } = makeMultiHand(8);
-    expect(state.players).toHaveLength(8);
-    expect(totalChips(state)).toBe(800);
+describe('multiway games - 6 players', () => {
+  it('creates valid 6-player initial state', () => {
+    const { state } = makeMultiHand(6);
+    expect(state.players).toHaveLength(6);
+    expect(totalChips(state)).toBe(600);
   });
 
   it('completes a full hand with chip conservation', () => {
-    const { state } = makeMultiHand(8, 55);
+    const { state } = makeMultiHand(6, 55);
     const final = playToCompletion(state);
     expect(final.isHandComplete).toBe(true);
-    expect(totalChips(final)).toBe(800);
+    expect(totalChips(final)).toBe(600);
   });
 
   it('handles bet/raise with multiway hasActed reset', () => {
@@ -162,7 +162,7 @@ describe('multiway games - 8 players', () => {
 });
 
 describe('chip conservation invariant', () => {
-  for (const n of [2, 3, 4, 6, 8]) {
+  for (const n of [2, 3, 4, 5, 6]) {
     it(`${n}-player game preserves total chips`, () => {
       for (let seed = 1; seed <= 5; seed++) {
         const { state } = makeMultiHand(n, seed * 100);

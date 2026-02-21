@@ -142,8 +142,8 @@ export function CreateTableForm({ onSubmit, submitting = false }: CreateTableFor
               onChange={(e) => update("maxSeats", Number(e.target.value))}
             >
               <option value="2">2 (Heads-Up)</option>
-              <option value="6">6 (Short-Handed)</option>
-              <option value="8">8 (Full Ring)</option>
+              <option value="4">4 (Short-Handed)</option>
+              <option value="6">6 (6-Max)</option>
             </Select>
           </div>
 

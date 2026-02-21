@@ -16,11 +16,11 @@ import {
 // ── Arbitraries ──────────────────────────────────────────────
 
 /**
- * Generate a valid player setup with 2-8 players.
+ * Generate a valid player setup with 2-6 players.
  */
 function arbPlayerSetup(): fc.Arbitrary<PlayerSetup[]> {
   return fc
-    .integer({ min: 2, max: 8 })
+    .integer({ min: 2, max: 6 })
     .chain((numPlayers) =>
       fc.array(
         fc.record({
@@ -82,7 +82,7 @@ function arbGameConfig(): fc.Arbitrary<GameConfig> {
       bigBet: fc.constant(bb * 2),      // Limit: bigBet = 2x bigBlind
       ante: fc.integer({ min: 0, max: sb }),
       maxRaisesPerStreet: fc.integer({ min: 3, max: 5 }),
-      maxPlayers: fc.constant(8),
+      maxPlayers: fc.constant(6),
     });
   });
 }

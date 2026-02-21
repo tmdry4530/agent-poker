@@ -58,7 +58,7 @@ export class TableActor {
 
   constructor(options: TableActorOptions) {
     this.tableId = options.tableId;
-    this.maxSeats = options.maxSeats ?? 8;
+    this.maxSeats = options.maxSeats ?? 6;
     this.variant = options.variant ?? 'LIMIT';
 
     // Set config based on variant if not explicitly provided

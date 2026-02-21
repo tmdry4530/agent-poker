@@ -28,7 +28,7 @@ interface LiveState {
   lastAction?: { agentId: string; action: string; amount?: number };
 }
 
-// Position calculation for 2-8 players
+// Position calculation for 2-6 players
 function getPositions(playerCount: number, dealerIndex: number): Map<number, string> {
   const positions = new Map<number, string>();
 
@@ -44,37 +44,20 @@ function getPositions(playerCount: number, dealerIndex: number): Map<number, str
     positions.set(dealerIndex, "BTN");
     positions.set((dealerIndex + 1) % playerCount, "SB");
     positions.set((dealerIndex + 2) % playerCount, "BB");
-    positions.set((dealerIndex + 3) % playerCount, "CO");
+    positions.set((dealerIndex + 3) % playerCount, "UTG");
   } else if (playerCount === 5) {
     positions.set(dealerIndex, "BTN");
     positions.set((dealerIndex + 1) % playerCount, "SB");
     positions.set((dealerIndex + 2) % playerCount, "BB");
     positions.set((dealerIndex + 3) % playerCount, "UTG");
     positions.set((dealerIndex + 4) % playerCount, "CO");
-  } else if (playerCount === 6) {
+  } else if (playerCount >= 6) {
     positions.set(dealerIndex, "BTN");
     positions.set((dealerIndex + 1) % playerCount, "SB");
     positions.set((dealerIndex + 2) % playerCount, "BB");
     positions.set((dealerIndex + 3) % playerCount, "UTG");
     positions.set((dealerIndex + 4) % playerCount, "HJ");
     positions.set((dealerIndex + 5) % playerCount, "CO");
-  } else if (playerCount === 7) {
-    positions.set(dealerIndex, "BTN");
-    positions.set((dealerIndex + 1) % playerCount, "SB");
-    positions.set((dealerIndex + 2) % playerCount, "BB");
-    positions.set((dealerIndex + 3) % playerCount, "UTG");
-    positions.set((dealerIndex + 4) % playerCount, "UTG1");
-    positions.set((dealerIndex + 5) % playerCount, "HJ");
-    positions.set((dealerIndex + 6) % playerCount, "CO");
-  } else if (playerCount >= 8) {
-    positions.set(dealerIndex, "BTN");
-    positions.set((dealerIndex + 1) % playerCount, "SB");
-    positions.set((dealerIndex + 2) % playerCount, "BB");
-    positions.set((dealerIndex + 3) % playerCount, "UTG");
-    positions.set((dealerIndex + 4) % playerCount, "UTG1");
-    positions.set((dealerIndex + 5) % playerCount, "MP");
-    positions.set((dealerIndex + 6) % playerCount, "HJ");
-    positions.set((dealerIndex + 7) % playerCount, "CO");
   }
 
   return positions;

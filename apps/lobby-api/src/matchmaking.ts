@@ -30,7 +30,7 @@ export class MatchmakingQueue {
   /**
    * Add an agent to the matchmaking queue.
    */
-  enqueue(agentId: string, variant: string, blindLevel: BlindLevel, maxSeats = 8): void {
+  enqueue(agentId: string, variant: string, blindLevel: BlindLevel, maxSeats = 6): void {
     // Check if already in queue
     if (this.queue.some((e) => e.agentId === agentId)) {
       throw new Error('Agent already in queue');

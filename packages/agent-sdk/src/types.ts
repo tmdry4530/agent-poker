@@ -47,8 +47,8 @@ export interface VisibleGameState {
     minRaise: number;
     maxRaise: number;
   };
-  /** My position at the table (8-player support) */
-  myPosition?: string; // 'BTN' | 'SB' | 'BB' | 'UTG' | 'UTG+1' | 'MP' | 'HJ' | 'CO'
+  /** My position at the table (6-max support) */
+  myPosition?: string; // 'BTN' | 'SB' | 'BB' | 'UTG' | 'HJ' | 'CO'
   /** Position mapping for all seats (seatIndex → position) */
   positions?: Record<number, string> | undefined;
   // HU backward-compat (deprecated)

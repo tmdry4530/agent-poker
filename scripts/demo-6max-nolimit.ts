@@ -1,9 +1,9 @@
 /**
- * E2E Demo: 8 bots play 100 hands of No-Limit Hold'em (8-max).
+ * E2E Demo: 6 bots play 100 hands of No-Limit Hold'em (6-max).
  * Validates chip conservation, replay determinism, and event chain integrity.
  * Prints per-bot statistics: hands played, VPIP%, PFR%, win rate, total profit/loss.
  *
- * Usage: npx tsx scripts/demo-8max-nolimit.ts
+ * Usage: npx tsx scripts/demo-6max-nolimit.ts
  * Exit 0 = success, non-zero = failure
  */
 
@@ -29,7 +29,7 @@ import {
 const NUM_HANDS = 100;
 const STARTING_CHIPS = 1000;
 const MASTER_SEED = 88888;
-const NUM_PLAYERS = 8;
+const NUM_PLAYERS = 6;
 
 interface BotStats {
   id: string;
@@ -252,12 +252,10 @@ const BOTS = [
   { id: 'TightAggressive', strategy: 'tight-aggressive' },
   { id: 'LooseAggressive', strategy: 'loose-aggressive' },
   { id: 'PotControl', strategy: 'pot-control' },
-  { id: 'LooseAggressive2', strategy: 'loose-aggressive' },
-  { id: 'RandomBot2', strategy: 'random' },
 ];
 
 async function main() {
-  console.log('=== Agent Poker MVP1 — No-Limit 8-max Demo ===');
+  console.log('=== Agent Poker MVP1 — No-Limit 6-max Demo ===');
   console.log(`Hands: ${NUM_HANDS} | Starting chips: ${STARTING_CHIPS} each | Players: ${NUM_PLAYERS}`);
   console.log();
 
@@ -440,20 +438,20 @@ async function main() {
     `  Global chip total: ${totalNow} (expected ${totalExpected}) — ${globalChipOk ? 'PASS' : 'FAIL'}`
   );
 
-  // ── Verify position rotation for 8 seats ───────────────
+  // ── Verify position rotation for 6 seats ───────────────
   console.log();
-  console.log('=== Position Rotation Verification (8 seats) ===');
+  console.log('=== Position Rotation Verification (6 seats) ===');
   let positionOk = true;
   const dealerPositions = new Set<number>();
   for (const rec of records) {
     const dealerSeat = rec.finalState.dealerSeatIndex;
     dealerPositions.add(dealerSeat);
   }
-  // With 100 hands and 8 seats, we expect all 8 positions to be used at least once
-  if (dealerPositions.size < 8) {
-    console.log(`  [WARN] Only ${dealerPositions.size}/8 dealer positions used in ${records.length} hands`);
+  // With 100 hands and 6 seats, we expect all 6 positions to be used at least once
+  if (dealerPositions.size < 6) {
+    console.log(`  [WARN] Only ${dealerPositions.size}/6 dealer positions used in ${records.length} hands`);
   } else {
-    console.log(`  All 8 dealer positions used: PASS`);
+    console.log(`  All 6 dealer positions used: PASS`);
   }
 
   // ── Verify event chain integrity ───────────────────────
@@ -472,7 +470,7 @@ async function main() {
 
   // ── Bot Statistics ──────────────────────────────────────
   console.log();
-  console.log('=== Bot Statistics (8 players) ===');
+  console.log('=== Bot Statistics (6 players) ===');
   for (const s of stats) {
     const vpipPct = s.handsPlayed > 0 ? ((s.vpip / s.handsPlayed) * 100).toFixed(1) : '0.0';
     const pfrPct = s.handsPlayed > 0 ? ((s.pfr / s.handsPlayed) * 100).toFixed(1) : '0.0';

@@ -123,7 +123,7 @@ Readiness probe. 게임 서버 연결 상태 확인.
     {
       "id": "tbl_a1b2c3d4",
       "variant": "LHE",
-      "maxSeats": 8,
+      "maxSeats": 6,
       "status": "running",
       "seats": [
         {
@@ -155,7 +155,7 @@ Readiness probe. 게임 서버 연결 상태 확인.
 ```json
 {
   "variant": "NL",
-  "maxSeats": 8,
+  "maxSeats": 6,
   "smallBlind": 5,
   "bigBlind": 10,
   "ante": 0
@@ -165,7 +165,7 @@ Readiness probe. 게임 서버 연결 상태 확인.
 | 필드 | 타입 | 필수 | 기본값 | 제약 |
 |------|------|------|--------|------|
 | variant | string | X | "LHE" | "LHE" (Limit Hold'em), "NL" (No-Limit), "PL" (Pot-Limit) |
-| maxSeats | number | X | 8 | 2-8 |
+| maxSeats | number | X | 6 | 2-6 |
 | smallBlind | number | X | 5 | >= 1 |
 | bigBlind | number | X | 10 | >= smallBlind |
 | ante | number | X | 0 | >= 0 |
@@ -176,7 +176,7 @@ Readiness probe. 게임 서버 연결 상태 확인.
   "tableId": "tbl_a1b2c3d4",
   "status": "open",
   "variant": "NL",
-  "maxSeats": 8,
+  "maxSeats": 6,
   "config": {
     "variant": "NL",
     "smallBlind": 5,
@@ -201,7 +201,7 @@ Readiness probe. 게임 서버 연결 상태 확인.
 {
   "id": "tbl_a1b2c3d4",
   "variant": "LHE",
-  "maxSeats": 8,
+  "maxSeats": 6,
   "status": "running",
   "seats": [...],
   "currentHandId": "hand_42",
@@ -650,7 +650,7 @@ HELLO 인증 성공 시 응답. 현재 게임 상태 포함.
 | tableId | string | 테이블 ID |
 | seatIndex | number | 좌석 번호 |
 | agentId | string | 에이전트 ID |
-| myPosition | string | 내 포지션 ("BTN"/"SB"/"BB"/"UTG"/"UTG+1"/"MP"/"HJ"/"CO") |
+| myPosition | string | 내 포지션 ("BTN"/"SB"/"BB"/"UTG"/"HJ"/"CO") |
 | state | object | 현재 게임 상태 (없으면 핸드 미시작) |
 | deltaEvents | array | 재연결 시 누락 이벤트 |
 | fullResync | boolean | true면 전체 재동기화 필요 |

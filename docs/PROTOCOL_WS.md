@@ -30,7 +30,7 @@ Server stores last N requestId per seat and returns the same response for duplic
 
 **HELLO** (client -> server): includes agentId, seatToken, lastSeenHand?, lastSeenEventId?
 
-**WELCOME** (server -> client): accepted + initial state snapshot + myPosition field (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO)
+**WELCOME** (server -> client): accepted + initial state snapshot + myPosition field (BTN/SB/BB/UTG/HJ/CO)
 
 **STATE** (server -> client): incremental updates or full snapshot + myPosition + players[].position fields
 
@@ -42,16 +42,16 @@ Server stores last N requestId per seat and returns the same response for duplic
 
 **PING/PONG**: connection keepalive
 
-## 5. Position Fields (8-player support)
+## 5. Position Fields (6-max support)
 
 WELCOME payload includes:
-- `myPosition`: string - current player's position (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO)
+- `myPosition`: string - current player's position (BTN/SB/BB/UTG/HJ/CO)
 
 STATE payload includes:
 - `myPosition`: string - current player's position
 - `players[].position`: string - each player's position
 
-Positions are dynamically assigned at hand start based on button rotation and active player count (2-8).
+Positions are dynamically assigned at hand start based on button rotation and active player count (2-6).
 
 ## 6. Reconnect flow
 

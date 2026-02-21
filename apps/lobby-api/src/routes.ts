@@ -195,7 +195,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { BettingMode, DEFAULT_CONFIG, DEFAULT_NL_CONFIG, DEFAULT_PL_CONFIG } = await import('@agent-poker/poker-engine');
 
     const tableId = `tbl_${crypto.randomUUID().slice(0, 8)}`;
-    const maxSeats = body.maxSeats ?? 8;
+    const maxSeats = body.maxSeats ?? 6;
     const variant = body.variant ?? 'LIMIT';
 
     // Build GameConfig from request params
@@ -342,7 +342,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
       const variant = body.variant ?? 'LIMIT';
       const blindLevel = body.blindLevel ?? 'low';
-      const maxSeats = body.maxSeats ?? 8;
+      const maxSeats = body.maxSeats ?? 6;
 
       try {
         matchmakingQueue.enqueue(body.agentId, variant, blindLevel, maxSeats);

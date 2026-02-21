@@ -36,7 +36,7 @@ export interface PlayerAction {
 // ── Player / Seat ───────────────────────────────────────────
 export interface PlayerState {
   id: string;
-  seatIndex: number; // 0-7
+  seatIndex: number; // 0-5
   chips: number;
   holeCards: Card[];
   currentBet: number; // amount bet in current street
@@ -75,7 +75,7 @@ export interface GameConfig {
   bigBet: number;
   ante: number;
   maxRaisesPerStreet: number; // typically 4 for limit, 0 = unlimited (NL/PL)
-  maxPlayers: number; // 2-8, default 8
+  maxPlayers: number; // 2-6, default 6
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -86,7 +86,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   bigBet: 4,
   ante: 0,
   maxRaisesPerStreet: 4,
-  maxPlayers: 8,
+  maxPlayers: 6,
 };
 
 export const DEFAULT_NL_CONFIG: GameConfig = {
@@ -97,7 +97,7 @@ export const DEFAULT_NL_CONFIG: GameConfig = {
   bigBet: 0,
   ante: 0,
   maxRaisesPerStreet: 0, // unlimited
-  maxPlayers: 8,
+  maxPlayers: 6,
 };
 
 export const DEFAULT_PL_CONFIG: GameConfig = {
@@ -108,7 +108,7 @@ export const DEFAULT_PL_CONFIG: GameConfig = {
   bigBet: 0,
   ante: 0,
   maxRaisesPerStreet: 0, // unlimited
-  maxPlayers: 8,
+  maxPlayers: 6,
 };
 
 // ── Game state ──────────────────────────────────────────────
@@ -116,7 +116,7 @@ export interface GameState {
   handId: string;
   config: GameConfig;
   street: Street;
-  players: PlayerState[]; // 2-8 players
+  players: PlayerState[]; // 2-6 players
   dealerSeatIndex: number; // seat index of dealer button
   activePlayerSeatIndex: number; // seat index of whose turn
   communityCards: Card[];

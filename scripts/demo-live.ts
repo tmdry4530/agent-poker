@@ -26,11 +26,11 @@ async function main() {
   await startLobbyApi(HTTP_PORT, { gameServer });
   console.log(`[http] http://localhost:${HTTP_PORT}\n`);
 
-  // 2. Create table via HTTP (maxSeats: 8)
+  // 2. Create table via HTTP (maxSeats: 6)
   const tableRes = await fetch(`http://localhost:${HTTP_PORT}/api/tables`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ maxSeats: 8 }),
+    body: JSON.stringify({ maxSeats: 6 }),
   });
   const { tableId } = (await tableRes.json()) as { tableId: string };
   console.log(`Table created: ${tableId}`);

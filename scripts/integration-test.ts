@@ -377,7 +377,7 @@ async function main() {
     }
 
     // Create table
-    const tableRes = await httpRequest('POST', '/api/tables', { maxSeats: 8 });
+    const tableRes = await httpRequest('POST', '/api/tables', { maxSeats: 6 });
     check('Create table', tableRes.status === 200 && !!tableRes.data.tableId);
     const tableId = tableRes.data.tableId;
 

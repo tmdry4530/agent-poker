@@ -189,7 +189,7 @@ function benchmarkRoundTrip(): {
 
   const table = new TableActor({
     tableId: 'bench-rt',
-    maxSeats: 8,
+    maxSeats: 6,
     actionTimeoutMs: 60_000,
   });
 

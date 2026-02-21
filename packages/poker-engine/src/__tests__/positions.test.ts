@@ -26,13 +26,13 @@ describe('assignPositions', () => {
     ]);
   });
 
-  it('assigns all positions for 8 players', () => {
-    const seats = [0, 1, 2, 3, 4, 5, 6, 7];
+  it('assigns all positions for 6 players', () => {
+    const seats = [0, 1, 2, 3, 4, 5];
     const result = assignPositions(seats, 2);
     expect(result[0]).toEqual({ seatIndex: 2, position: 'BTN' });
     expect(result[1]).toEqual({ seatIndex: 3, position: 'SB' });
     expect(result[2]).toEqual({ seatIndex: 4, position: 'BB' });
-    expect(result).toHaveLength(8);
+    expect(result).toHaveLength(6);
   });
 
   it('handles non-contiguous seats', () => {
@@ -46,8 +46,8 @@ describe('assignPositions', () => {
     expect(() => assignPositions([0], 0)).toThrow();
   });
 
-  it('throws for > 8 players', () => {
-    expect(() => assignPositions([0, 1, 2, 3, 4, 5, 6, 7, 8], 0)).toThrow();
+  it('throws for > 6 players', () => {
+    expect(() => assignPositions([0, 1, 2, 3, 4, 5, 6], 0)).toThrow();
   });
 });
 

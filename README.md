@@ -8,12 +8,12 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
 
 ## 현재 상태
 
-**MVP1 v1.0.0** | 379 tests passing | 8-player NL/PL/Limit | Postgres 영속성 | Docker/CI/CD
+**MVP1 v1.0.0** | 379 tests passing | 6-max NL/PL/Limit | Postgres 영속성 | Docker/CI/CD
 
 | 항목 | 상태 |
 |------|------|
 | Hold'em 엔진 (Limit / No-Limit / Pot-Limit) | 완료 |
-| 2-8인 멀티플레이어 (BTN/SB/BB/UTG/UTG+1/MP/HJ/CO 포지션) | 완료 |
+| 2-6인 멀티플레이어 (BTN/SB/BB/UTG/HJ/CO 포지션) | 완료 |
 | Ante, Side Pot, Multi-way Showdown | 완료 |
 | 이벤트 소싱 + SHA-256 해시 체인 + 결정적 리플레이 | 완료 |
 | 가상칩 이중원장 (double-entry) | 완료 |
@@ -22,7 +22,7 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
 | 매치메이킹 (micro/low/mid/high 블라인드) | 완료 |
 | 봇 SDK + 6종 내장 전략 (position-aware) | 완료 |
 | Anti-Collusion (칩 덤프 감지, 승률 이상 감지) | 완료 |
-| Admin UI (Next.js 15, 8-seat layout, 대시보드/리플레이) | 완료 |
+| Admin UI (Next.js 15, 6-seat layout, 대시보드/리플레이) | 완료 |
 | CI/CD (GitHub Actions, Docker, ghcr.io) | 완료 |
 | 모니터링 (Prometheus + Grafana) | 완료 |
 
@@ -32,7 +32,7 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
                     ┌─────────────────┐
                     │   Admin UI      │ :3000
                     │ (Next.js 15)    │
-                    │ 8-seat layout   │
+                    │ 6-seat layout   │
                     └────────┬────────┘
                              │
               ┌──────────────┼──────────────┐
@@ -46,7 +46,7 @@ Agent(bot) 전용 포커 플랫폼. AI 에이전트끼리 대결하는 환경을
              │                   │          │
      ┌───────┴───────────────────┴──────┐   │
      │         Shared Packages          │   │
-     │  poker-engine (2-8p NL/PL/Limit) │   │
+     │  poker-engine (2-6p NL/PL/Limit) │   │
      │  hand-history | agent-sdk        │   │
      │  anti-collusion | adapters        │   │
      └───────────────┬──────────────────┘   │
@@ -64,7 +64,7 @@ agent-poker/
 │   ├── game-server/        # WebSocket — 핸드 진행, JWT 인증, 레이트 리미팅
 │   └── admin-ui/           # Next.js 15 — 대시보드, 리플레이, 매치메이킹 UI
 ├── packages/
-│   ├── poker-engine/       # 순수 상태기계 — Limit/NL/PL Hold'em (2-8인)
+│   ├── poker-engine/       # 순수 상태기계 — Limit/NL/PL Hold'em (2-6인)
 │   ├── hand-history/       # 이벤트 로그 + SHA-256 해시 체인 + 리플레이 검증
 │   ├── agent-sdk/          # WS 클라이언트 + 봇 전략 인터페이스 + 6종 내장 봇
 │   ├── database/           # Drizzle ORM 스키마 + 마이그레이션 (8 테이블)
@@ -128,10 +128,10 @@ cd apps/admin-ui && pnpm dev      # Next.js :3000
 pnpm demo
 
 # 100핸드 6-max No-Limit 데모 (6종 봇 전략 + 통계)
-npx tsx scripts/demo-nolimit-6max.ts
+npx tsx scripts/demo-6max-nolimit.ts
 
-# 100핸드 8-max No-Limit 데모 (8명 풀링 멀티플레이어)
-npx tsx scripts/demo-nolimit-8max.ts
+# 100핸드 6-max No-Limit 데모 (6명 6-max 멀티플레이어)
+npx tsx scripts/demo-6max-nolimit.ts
 ```
 
 ## 핵심 설계 원칙
@@ -164,10 +164,10 @@ Identity, Ledger, Settlement은 인터페이스 뒤에 숨겨져 있다. MVP1은
 
 ### packages/poker-engine
 
-Limit / No-Limit / Pot-Limit Hold'em 상태기계 (2-8인).
+Limit / No-Limit / Pot-Limit Hold'em 상태기계 (2-6인).
 
 - 베팅 모드: `LIMIT`, `NO_LIMIT`, `POT_LIMIT` + ante 지원
-- 포지션: BTN, SB, BB, UTG, UTG+1, MP, HJ, CO
+- 포지션: BTN, SB, BB, UTG, HJ, CO
 - 결정적 RNG (mulberry32 시드)
 - 칩 보존 불변조건 강제
 - 사이드 팟 + 멀티웨이 쇼다운
@@ -369,7 +369,7 @@ pnpm --filter @agent-poker/database test
 
 # E2E 데모
 pnpm demo                                    # 20핸드 HU Limit
-npx tsx scripts/demo-nolimit-6max.ts          # 100핸드 6-max NL
+npx tsx scripts/demo-6max-nolimit.ts          # 100핸드 6-max NL
 ```
 
 ## 문서

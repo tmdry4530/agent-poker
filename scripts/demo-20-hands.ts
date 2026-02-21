@@ -1,7 +1,7 @@
 /**
  * E2E Demo: bots play 20 hands using the poker engine directly.
  * Validates chip conservation, deterministic replay, and ledger integrity.
- * Supports 2-8 players.
+ * Supports 2-6 players.
  *
  * Usage: npx tsx scripts/demo-20-hands.ts
  * Exit 0 = success, non-zero = failure

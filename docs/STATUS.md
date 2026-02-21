@@ -18,7 +18,7 @@
 - [x] No-Limit Hold'em (minRaise/maxRaise, all-in)
 - [x] Pot-Limit Hold'em (pot-size raise cap)
 - [x] Ante 지원 (configurable)
-- [x] 2-8인 멀티플레이어 (동적 포지션: BTN/SB/BB/UTG-CO)
+- [x] 2-6인 멀티플레이어 (동적 포지션: BTN/SB/BB/UTG-CO)
 - [x] 사이드 팟 자동 분리 + 멀티웨이 쇼다운
 - [x] 칩 보존 불변조건 강제
 - [x] 결정적 RNG (mulberry32 시드)
@@ -122,7 +122,7 @@
 
 | Package | Tests | Build | Status |
 |---------|-------|-------|--------|
-| poker-engine | 92 | OK | NL/PL/Limit + ante + 2-8인 (6 test files) |
+| poker-engine | 92 | OK | NL/PL/Limit + ante + 2-6인 (6 test files) |
 | hand-history | 31 | OK | SHA-256 hash chain + replay (2 test files) |
 | adapters-ledger | 22 | OK | Double-entry ledger |
 | adapters-identity | 9 | OK | JWT + API key |

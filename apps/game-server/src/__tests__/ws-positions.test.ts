@@ -8,7 +8,7 @@ describe('Position assignments in WS messages', () => {
     const table = new TableActor({
       tableId: 'test-2p',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
     const agent1Token = signSeatToken({ agentId: 'agent1', tableId: table.tableId });
@@ -26,14 +26,14 @@ describe('Position assignments in WS messages', () => {
     expect(positions.map((p) => p.position)).toEqual(['BTN', 'BB']);
   });
 
-  it('should compute positions for 8-player game', () => {
+  it('should compute positions for 6-player game', () => {
     const table = new TableActor({
-      tableId: 'test-8p',
+      tableId: 'test-6p-full',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       const agentId = `agent${i}`;
       const token = signSeatToken({ agentId, tableId: table.tableId });
       table.addSeat(agentId, token, 1000);
@@ -44,16 +44,14 @@ describe('Position assignments in WS messages', () => {
     const activeSeatIndices = state.players.map((p) => p.seatIndex);
     const positions = assignPositions(activeSeatIndices, state.dealerSeatIndex);
 
-    expect(positions.length).toBe(8);
+    expect(positions.length).toBe(6);
     const posLabels = positions.map((p) => p.position);
 
-    // For 8 players: BTN, SB, BB, UTG, UTG1, MP, HJ, CO
+    // For 6 players: BTN, SB, BB, UTG, HJ, CO
     expect(posLabels).toContain('BTN');
     expect(posLabels).toContain('SB');
     expect(posLabels).toContain('BB');
     expect(posLabels).toContain('UTG');
-    expect(posLabels).toContain('UTG1');
-    expect(posLabels).toContain('MP');
     expect(posLabels).toContain('HJ');
     expect(posLabels).toContain('CO');
   });
@@ -62,7 +60,7 @@ describe('Position assignments in WS messages', () => {
     const table = new TableActor({
       tableId: 'test-6p',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
     for (let i = 0; i < 6; i++) {
@@ -87,7 +85,7 @@ describe('Position assignments in WS messages', () => {
     const table = new TableActor({
       tableId: 'test-consistency',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
     const agent1Token = signSeatToken({ agentId: 'agent1', tableId: table.tableId });
@@ -119,7 +117,7 @@ describe('Position assignments in WS messages', () => {
     const table = new TableActor({
       tableId: 'test-dealer-rotation',
       variant: 'NL',
-      maxSeats: 8,
+      maxSeats: 6,
     });
 
     for (let i = 0; i < 4; i++) {
