@@ -62,7 +62,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
       PORT: 8080
       SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://admin-ui:3000}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
       interval: 10s
@@ -89,7 +89,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
       PORT: 8081
       SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://admin-ui:3000}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"const s=require('net').connect(8081,'localhost',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))\""]
       interval: 10s

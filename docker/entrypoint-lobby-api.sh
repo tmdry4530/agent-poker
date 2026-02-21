@@ -8,9 +8,11 @@ MAX_RETRIES=30
 RETRY_INTERVAL=2
 for i in $(seq 1 $MAX_RETRIES); do
   if node -e "
-    const pg = require('postgres');
-    const sql = pg(process.env.DATABASE_URL);
-    sql\`SELECT 1\`.then(() => { sql.end(); process.exit(0); }).catch(() => process.exit(1));
+    const url = new URL(process.env.DATABASE_URL.replace(/^postgres:\/\//, 'http://'));
+    const net = require('net');
+    const s = net.connect(Number(url.port) || 5432, url.hostname, () => { s.end(); process.exit(0); });
+    s.on('error', () => process.exit(1));
+    setTimeout(() => process.exit(1), 3000);
   " 2>/dev/null; then
     echo "Database connection established."
     break
