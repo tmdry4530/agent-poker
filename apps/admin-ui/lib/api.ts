@@ -6,10 +6,24 @@ const API_BASE =
     : "http://localhost:8080";
 
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string>),
+  };
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("agent_poker_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("agent_poker_token");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
   return res.json();
 }

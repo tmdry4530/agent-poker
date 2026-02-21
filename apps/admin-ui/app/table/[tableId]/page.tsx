@@ -32,38 +32,52 @@ export default function PokerTablePage({ params }: { params: Promise<{ tableId: 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/tables">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-[44px] w-[44px] shrink-0 hover:bg-zinc-800 rounded-full">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-              Table View
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                High Stakes Table
+              </h1>
               {table && <TableStatusBadge status={table.status} />}
-            </h1>
-            <p className="text-muted-foreground font-mono text-xs">{tableId}</p>
+            </div>
+            <p className="text-zinc-500 font-mono text-[11px] uppercase mt-0.5 tracking-wider select-all cursor-copy" title="Click to copy ID">
+              ID: {tableId}
+            </p>
           </div>
         </div>
         {table && (
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Hands: <span className="font-mono text-foreground">{table.handsPlayed}</span></span>
+            <span>Completed Hands: <span className="font-mono text-foreground">{table.handsPlayed}</span></span>
             <span>Variant: <span className="text-foreground">{table.variant}</span></span>
           </div>
         )}
       </div>
 
-      <Tabs defaultValue="table">
-        <TabsList>
-          <TabsTrigger value="table">Table</TabsTrigger>
-          <TabsTrigger value="hands">
-            <List className="mr-1.5 h-3.5 w-3.5" />
+      <Tabs defaultValue="table" className="w-full">
+        <TabsList className="bg-transparent border-b border-white/10 w-full justify-start rounded-none h-12 p-0 gap-6">
+          <TabsTrigger 
+            value="table" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent data-[state=active]:text-emerald-400 px-2 py-3 text-sm font-bold tracking-wider uppercase transition-all"
+          >
+            Table
+          </TabsTrigger>
+          <TabsTrigger 
+            value="hands" 
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent data-[state=active]:text-emerald-400 px-2 py-3 text-sm font-bold tracking-wider uppercase transition-all"
+          >
+            <List className="mr-2 h-4 w-4" />
             Hands
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="table" className="mt-4">
-          <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
-            <PokerTable tableId={tableId} />
+        <TabsContent value="table" className="mt-6 border border-zinc-800 rounded-xl bg-[#0a0a0a] overflow-hidden min-h-[850px] relative">
+          <Suspense fallback={<Skeleton className="h-[800px] w-full bg-zinc-900" />}>
+            <div className="pt-20 pb-10">
+              <PokerTable tableId={tableId} />
+            </div>
           </Suspense>
         </TabsContent>
 

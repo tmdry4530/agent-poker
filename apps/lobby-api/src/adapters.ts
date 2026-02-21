@@ -4,23 +4,16 @@
  */
 
 import { logger } from './logger.js';
+import type { IdentityProvider } from '@agent-poker/adapters-identity';
+import { MemoryIdentityProvider } from '@agent-poker/adapters-identity';
+
+export type { IdentityProvider, AuthResult } from '@agent-poker/adapters-identity';
 
 export type AdapterType = 'memory' | 'postgres';
 
 export interface LedgerAdapter {
   getBalance(agentId: string): Promise<number>;
   transfer(from: string, to: string, amount: number): Promise<void>;
-}
-
-export interface AuthResult {
-  agentId: string;
-  displayName: string;
-}
-
-export interface IdentityProvider {
-  verify(agentId: string, apiKey: string): Promise<boolean>;
-  create(displayName: string): Promise<{ agentId: string; apiKey: string }>;
-  authenticate(apiKey: string): Promise<AuthResult | null>;
 }
 
 /**
@@ -61,7 +54,7 @@ export async function createIdentityProvider(): Promise<IdentityProvider> {
     const databaseUrl = process.env['DATABASE_URL'];
     if (!databaseUrl) {
       logger.warn('ADAPTER_TYPE=postgres but DATABASE_URL not set, falling back to memory');
-      return createMemoryIdentity();
+      return new MemoryIdentityProvider();
     }
 
     try {
@@ -72,11 +65,12 @@ export async function createIdentityProvider(): Promise<IdentityProvider> {
       return new PostgresIdentityProvider({ db }) as unknown as IdentityProvider;
     } catch (err) {
       logger.error({ err }, 'Failed to load PostgresIdentity, falling back to memory');
-      return createMemoryIdentity();
+      return new MemoryIdentityProvider();
     }
   }
 
-  return createMemoryIdentity();
+  logger.info({ adapterType: 'memory' }, 'Using in-memory Identity');
+  return new MemoryIdentityProvider();
 }
 
 /**
@@ -101,37 +95,5 @@ function createMemoryLedger(): LedgerAdapter {
       balances.set(to, (balances.get(to) ?? 0) + amount);
     },
 
-  };
-}
-
-/**
- * In-memory Identity provider (default for MVP1).
- */
-function createMemoryIdentity(): IdentityProvider {
-  const agents = new Map<string, { apiKey: string; displayName: string }>();
-
-  logger.info({ adapterType: 'memory' }, 'Using in-memory Identity');
-
-  return {
-    async verify(agentId: string, apiKey: string): Promise<boolean> {
-      const agent = agents.get(agentId);
-      return agent?.apiKey === apiKey;
-    },
-
-    async create(displayName: string): Promise<{ agentId: string; apiKey: string }> {
-      const agentId = `agent_${Math.random().toString(36).slice(2, 10)}`;
-      const apiKey = `ak_${Math.random().toString(36).slice(2, 18)}`;
-      agents.set(agentId, { apiKey, displayName });
-      return { agentId, apiKey };
-    },
-
-    async authenticate(apiKey: string): Promise<AuthResult | null> {
-      for (const [agentId, agent] of agents) {
-        if (agent.apiKey === apiKey) {
-          return { agentId, displayName: agent.displayName };
-        }
-      }
-      return null;
-    },
   };
 }

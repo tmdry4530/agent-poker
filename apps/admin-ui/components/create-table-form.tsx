@@ -31,7 +31,7 @@ export interface CreateTableConfig {
 }
 
 const DEFAULT_CONFIG: CreateTableConfig = {
-  variant: "LHE",
+  variant: "LIMIT",
   blindPreset: "micro",
   smallBlind: 1,
   bigBlind: 2,
@@ -86,9 +86,9 @@ export function CreateTableForm({ onSubmit, submitting = false }: CreateTableFor
               value={config.variant}
               onChange={(e) => update("variant", e.target.value)}
             >
-              <option value="LHE">Limit Hold&apos;em</option>
-              <option value="NLHE">No-Limit Hold&apos;em</option>
-              <option value="PLO">Pot-Limit Omaha</option>
+              <option value="LIMIT">Limit Hold&apos;em</option>
+              <option value="NL">No-Limit Hold&apos;em</option>
+              <option value="PL">Pot-Limit Omaha</option>
             </Select>
           </div>
 

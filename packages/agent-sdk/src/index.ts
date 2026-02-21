@@ -12,3 +12,4 @@ export {
   isPotLimit,
   isLimit,
 } from './helpers.js';
+export { AgentAuth, type LoginResponse, type JoinTableResponse } from './auth.js';

@@ -4,11 +4,13 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { registerRoutes } from './routes.js';
 import { registerAuthHook } from './auth.js';
+import { registerAuthRoutes } from './auth-routes.js';
 import { logger } from './logger.js';
-import type { IdentityProvider } from './adapters.js';
+import type { IdentityProvider } from '@agent-poker/adapters-identity';
 
 export { registerRoutes } from './routes.js';
 export { registerAuthHook } from './auth.js';
+export { registerAuthRoutes } from './auth-routes.js';
 
 const PORT = parseInt(process.env['LOBBY_API_PORT'] ?? '8080', 10);
 
@@ -54,6 +56,7 @@ export async function startLobbyApi(port = PORT, deps?: { gameServer?: any; ledg
   // Register auth middleware if identity provider is available
   if (deps?.identity) {
     registerAuthHook(app, deps.identity as IdentityProvider);
+    registerAuthRoutes(app, deps.identity as IdentityProvider);
   }
 
   // Global error handler: return structured errors, never leak stack traces

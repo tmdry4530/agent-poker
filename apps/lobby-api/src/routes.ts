@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import crypto from 'node:crypto';
 import { signSeatToken } from '@agent-poker/game-server';
 import { logger } from './logger.js';
+import { requireRole } from './auth.js';
 import { MatchmakingQueue, BLIND_CONFIGS, type BlindLevel } from './matchmaking.js';
 import {
   CreateTableBodySchema,
@@ -181,7 +182,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     };
   });
 
-  app.post<{ Body: { variant?: 'LIMIT' | 'NL' | 'PL'; maxSeats?: number; smallBlind?: number; bigBlind?: number; ante?: number } }>('/api/tables', async (req, reply) => {
+  app.post<{ Body: { variant?: 'LIMIT' | 'NL' | 'PL'; maxSeats?: number; smallBlind?: number; bigBlind?: number; ante?: number } }>('/api/tables', { preHandler: [requireRole('agent')] }, async (req, reply) => {
     const parseResult = CreateTableBodySchema.safeParse(req.body);
     if (!parseResult.success) {
       return reply.status(400).send(formatZodError(parseResult.error));
@@ -243,6 +244,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post<{ Params: { id: string }; Body: { agentId: string; buyIn: number } }>(
     '/api/tables/:id/join',
+    { preHandler: [requireRole('agent')] },
     async (req, reply) => {
       const parseResult = JoinTableBodySchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -330,6 +332,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   app.post<{ Body: { agentId: string; variant?: 'LIMIT' | 'NL' | 'PL'; blindLevel?: BlindLevel; maxSeats?: number } }>(
     '/api/matchmaking/queue',
+    { preHandler: [requireRole('agent')] },
     async (req, reply) => {
       const parseResult = MatchmakingQueueBodySchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -358,7 +361,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return status;
   });
 
-  app.delete<{ Params: { agentId: string } }>('/api/matchmaking/queue/:agentId', async (req, reply) => {
+  app.delete<{ Params: { agentId: string } }>('/api/matchmaking/queue/:agentId', { preHandler: [requireRole('agent')] }, async (req, reply) => {
     const removed = matchmakingQueue.dequeue(req.params.agentId);
     if (!removed) {
       return reply.status(404).send({ error: 'Agent not in queue' });
@@ -375,6 +378,17 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     }
     const body = parseResult.data;
 
+    if (deps.identity) {
+      try {
+        const result = await deps.identity.registerAgent(body.displayName);
+        return { agentId: result.agentId, apiKey: result.apiKey, displayName: body.displayName };
+      } catch (err) {
+        logger.error({ err }, 'Agent registration failed');
+        return reply.status(500).send({ error: 'REGISTRATION_FAILED' });
+      }
+    }
+
+    // Fallback when no identity provider (e.g., tests without identity)
     const agentId = `agent_${crypto.randomUUID().slice(0, 8)}`;
     const apiKey = `ak_${crypto.randomBytes(16).toString('hex')}`;
     return { agentId, apiKey, displayName: body.displayName };

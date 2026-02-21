@@ -40,7 +40,7 @@ export default function TablesPage() {
         anteAmount: config.anteEnabled ? config.anteAmount : 0,
       });
       refresh();
-      router.push(`/tables/${table.id}`);
+      router.push(`/tables/${(table as any).tableId ?? table.id}`);
     } catch {
       // error handled by useApiData on next poll
     } finally {
