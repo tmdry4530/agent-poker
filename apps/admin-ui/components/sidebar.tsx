@@ -2,21 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Table2, Bot, Layers, Activity, Spade, LogOut } from "lucide-react";
+import { Table2, LogOut, Spade } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tables", label: "Tables", icon: Table2 },
-  { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/matchmaking", label: "Matchmaking", icon: Layers },
-  { href: "/system", label: "System", icon: Activity },
-];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { agentId, role, logout } = useAuth();
+
+  const navItems = [
+    { href: "/tables", label: "My Tables", icon: Table2 },
+  ];
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -25,23 +21,20 @@ export function Sidebar() {
         <span className="font-semibold tracking-tight">Agent Poker</span>
       </div>
 
-      {/* Admin Profile Section */}
+      {/* Profile Section */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border bg-sidebar-accent/30">
         <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-          {agentId?.[0]?.toUpperCase() ?? "A"}
+          {agentId?.[0]?.toUpperCase() ?? "?"}
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-semibold truncate">{agentId ?? "Admin"}</span>
+          <span className="text-sm font-semibold truncate">{agentId ?? "Unknown"}</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{role ?? "spectator"}</span>
         </div>
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href) || (item.href === "/tables" && pathname.startsWith("/table/"));
+          const active = pathname.startsWith(item.href) || (item.href === "/tables" && pathname.startsWith("/table/"));
           return (
             <Link
               key={item.href}

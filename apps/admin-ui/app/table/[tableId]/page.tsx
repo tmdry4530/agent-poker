@@ -3,12 +3,14 @@
 import { use, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiData } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth-context";
 import { getTable } from "@/lib/api";
 import { TableStatusBadge } from "@/components/table-status-badge";
 
@@ -24,8 +26,17 @@ const HandHistoryList = dynamic(
 
 export default function PokerTablePage({ params }: { params: Promise<{ tableId: string }> }) {
   const { tableId } = use(params);
+  const router = useRouter();
+  const { agentId } = useAuth();
   const fetcher = useCallback(() => getTable(tableId), [tableId]);
   const { data: table } = useApiData(fetcher, 3000);
+
+  // Check agent ownership — redirect if not seated at this table
+  const isMyTable = table?.seats?.some((s) => s.agentId === agentId);
+  if (table && !isMyTable) {
+    router.push("/tables");
+    return null;
+  }
 
   return (
     <div className="space-y-4">
@@ -58,14 +69,14 @@ export default function PokerTablePage({ params }: { params: Promise<{ tableId: 
 
       <Tabs defaultValue="table" className="w-full">
         <TabsList className="bg-transparent border-b border-white/10 w-full justify-start rounded-none h-12 p-0 gap-6">
-          <TabsTrigger 
-            value="table" 
+          <TabsTrigger
+            value="table"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent data-[state=active]:text-emerald-400 px-2 py-3 text-sm font-bold tracking-wider uppercase transition-all"
           >
             Table
           </TabsTrigger>
-          <TabsTrigger 
-            value="hands" 
+          <TabsTrigger
+            value="hands"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:bg-transparent data-[state=active]:text-emerald-400 px-2 py-3 text-sm font-bold tracking-wider uppercase transition-all"
           >
             <List className="mr-2 h-4 w-4" />

@@ -4,8 +4,10 @@ import { useCallback, Suspense } from "react";
 import { use } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Hash, Clock, Layers, Spade } from "lucide-react";
 import { useApiData } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth-context";
 import { getTable } from "@/lib/api";
 import { TableStatusBadge } from "@/components/table-status-badge";
 import { SeatsDisplay } from "@/components/seats-display";
@@ -27,8 +29,17 @@ const HandHistoryList = dynamic(
 
 export default function TableDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const { agentId } = useAuth();
   const fetcher = useCallback(() => getTable(id), [id]);
   const { data: table, loading, error } = useApiData(fetcher, 3000);
+
+  // Check agent ownership — redirect if not seated at this table
+  const isMyTable = table?.seats?.some((s) => s.agentId === agentId);
+  if (!loading && table && !isMyTable) {
+    router.push("/tables");
+    return null;
+  }
 
   return (
     <div className="space-y-6">

@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApiData } from "@/lib/hooks";
-import { getTables, createTable } from "@/lib/api";
-import { CreateTableForm, type CreateTableConfig } from "@/components/create-table-form";
+import { getTables } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { TableStatusBadge } from "@/components/table-status-badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -21,52 +20,25 @@ import { formatTimestamp } from "@/lib/utils";
 
 export default function TablesPage() {
   const router = useRouter();
+  const { agentId } = useAuth();
   const fetcher = useCallback(() => getTables(), []);
-  const { data: tables, loading, error, refresh } = useApiData(fetcher, 5000);
-  const [creating, setCreating] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const { data: allTables, loading, error } = useApiData(fetcher, 5000);
 
-  async function handleCreate(config: CreateTableConfig) {
-    setCreating(true);
-    try {
-      const table = await createTable({
-        variant: config.variant,
-        smallBlind: config.smallBlind,
-        bigBlind: config.bigBlind,
-        maxSeats: config.maxSeats,
-        minBuyInBB: config.minBuyInBB,
-        maxBuyInBB: config.maxBuyInBB,
-        anteEnabled: config.anteEnabled,
-        anteAmount: config.anteEnabled ? config.anteAmount : 0,
-      });
-      refresh();
-      router.push(`/tables/${(table as any).tableId ?? table.id}`);
-    } catch {
-      // error handled by useApiData on next poll
-    } finally {
-      setCreating(false);
-    }
-  }
+  // Filter: only show tables where my agent is seated
+  const tables = allTables?.filter((t) =>
+    t.seats?.some((s) => s.agentId === agentId),
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tables</h1>
-          <p className="text-muted-foreground">Manage poker tables</p>
-        </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "Create Table"}
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">My Tables</h1>
+        <p className="text-muted-foreground">Tables where your agent is playing</p>
       </div>
-
-      {showForm && (
-        <CreateTableForm onSubmit={handleCreate} submitting={creating} />
-      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>All Tables</CardTitle>
+          <CardTitle>Tables</CardTitle>
           <CardDescription>
             {tables ? `${tables.length} table${tables.length !== 1 ? "s" : ""}` : "Loading..."}
           </CardDescription>
@@ -82,7 +54,7 @@ export default function TablesPage() {
             <div className="py-8 text-center">
               <p className="text-sm text-destructive">Failed to load tables: {error}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Make sure lobby-api is running on localhost:8080
+                Make sure lobby-api is running
               </p>
             </div>
           ) : tables && tables.length > 0 ? (
@@ -122,9 +94,9 @@ export default function TablesPage() {
             </Table>
           ) : (
             <div className="py-12 text-center">
-              <p className="text-sm text-muted-foreground">No tables yet</p>
+              <p className="text-sm text-muted-foreground">No tables found</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Create a table to get started
+                Your agent is not seated at any table yet
               </p>
             </div>
           )}
