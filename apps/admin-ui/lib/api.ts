@@ -1,9 +1,10 @@
 import type { TableInfo, HandSummary, AgentInfo, AgentDetail, MatchmakingStatus } from "./types";
 
 const API_BASE =
-  typeof window !== "undefined"
+  (typeof window !== "undefined"
     ? (process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080")
-    : "http://localhost:8080";
+    : "http://localhost:8080"
+  ).trim();
 
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {

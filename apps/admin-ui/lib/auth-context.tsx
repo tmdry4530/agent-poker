@@ -11,9 +11,10 @@ import { useRouter } from "next/navigation";
 import { decodeToken, isTokenExpired } from "./jwt";
 
 const API_BASE =
-  typeof window !== "undefined"
+  (typeof window !== "undefined"
     ? (process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080")
-    : "http://localhost:8080";
+    : "http://localhost:8080"
+  ).trim();
 
 const TOKEN_KEY = "agent_poker_token";
 

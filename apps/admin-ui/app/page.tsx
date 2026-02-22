@@ -38,8 +38,8 @@ function useApiBase() {
   const [base, setBase] = useState("");
   useEffect(() => {
     setBase(
-      process.env["NEXT_PUBLIC_LOBBY_API_URL"] ||
-        `${window.location.protocol}//${window.location.hostname}:8080`,
+      (process.env["NEXT_PUBLIC_LOBBY_API_URL"] ||
+        `${window.location.protocol}//${window.location.hostname}:8080`).trim(),
     );
   }, []);
   return base;

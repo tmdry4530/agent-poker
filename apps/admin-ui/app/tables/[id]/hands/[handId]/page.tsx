@@ -187,7 +187,7 @@ export default function HandDetailPage({
 }) {
   const { id, handId } = use(params);
   const fetcher = useCallback(async (): Promise<HandDetail | null> => {
-    const API_BASE = process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080";
+    const API_BASE = (process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080").trim();
     const res = await fetch(`${API_BASE}/api/tables/${id}/hands/${encodeURIComponent(handId)}`);
     if (!res.ok) return null;
     return res.json();

@@ -26,7 +26,7 @@ interface LiveState {
 }
 
 async function fetchState(tableId: string): Promise<LiveState | null> {
-  const API_BASE = process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080";
+  const API_BASE = (process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080").trim();
   const res = await fetch(`${API_BASE}/api/tables/${tableId}/state`);
   if (!res.ok) return null;
   const data = await res.json();

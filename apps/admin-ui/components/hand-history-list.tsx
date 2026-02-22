@@ -17,7 +17,7 @@ interface HandSummary {
 }
 
 async function fetchHands(tableId: string): Promise<HandSummary[]> {
-  const API_BASE = process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080";
+  const API_BASE = (process.env.NEXT_PUBLIC_LOBBY_API_URL ?? "http://localhost:8080").trim();
   const res = await fetch(`${API_BASE}/api/tables/${tableId}/hands`);
   if (!res.ok) return [];
   const data = await res.json();
