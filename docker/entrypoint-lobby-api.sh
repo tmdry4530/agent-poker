@@ -9,7 +9,7 @@ for i in $(seq 1 $MAX_RETRIES); do
   if node -e "
     const url = new URL(process.env.DATABASE_URL.replace(/^postgres(ql)?:\/\//, 'http://'));
     const net = require('net');
-    const s = net.connect(Number(url.port) || 5432, url.hostname, () => { s.end(); process.exit(0); });
+    const s = net.connect({ port: Number(url.port) || 5432, host: url.hostname, family: 4 }, () => { s.end(); process.exit(0); });
     s.on('error', () => process.exit(1));
     setTimeout(() => process.exit(1), 5000);
   " 2>/dev/null; then
