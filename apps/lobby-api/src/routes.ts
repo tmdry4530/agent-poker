@@ -19,6 +19,8 @@ import {
 import type { GameConfig } from '@agent-poker/poker-engine';
 import type { Database } from '@agent-poker/database';
 import { persistTable, persistSeat } from '@agent-poker/database';
+import { BOT_CONFIG } from './bot-config.js';
+import { BotFillManager } from './bot-fill.js';
 
 interface Deps {
   gameServer?: any;
@@ -36,6 +38,18 @@ const chipDumpDetector = new ChipDumpDetector();
 const winRateDetector = new WinRateAnomalyDetector();
 
 export function registerRoutes(app: FastifyInstance, deps: Deps): void {
+  // Initialize bot fill manager
+  const botFillManager = BOT_CONFIG.enabled
+    ? new BotFillManager(deps.gameServer, deps.db)
+    : null;
+
+  if (BOT_CONFIG.enabled) {
+    logger.info(
+      { timeoutMs: BOT_CONFIG.timeoutMs, model: BOT_CONFIG.model, hasApiKey: !!BOT_CONFIG.apiKey },
+      'Bot fill enabled',
+    );
+  }
+
   // Initialize matchmaking queue with match callback
   matchmakingQueue = new MatchmakingQueue(2, async (entries) => {
     const server = deps.gameServer;
@@ -104,6 +118,11 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
           bigBlind: blindConfig.bigBlind,
         },
       });
+    }
+
+    // Schedule bot fill if table isn't full
+    if (botFillManager && entries.length < maxSeats) {
+      botFillManager.scheduleFill(tableId, maxSeats);
     }
   });
 
