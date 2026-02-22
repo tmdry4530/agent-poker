@@ -7,6 +7,8 @@ import { EventRingBuffer } from './event-ring-buffer.js';
 import { RateLimiter } from './rate-limiter.js';
 import { verifySeatToken, refreshSeatToken } from './seat-token.js';
 import { WsEnvelopeSchema, HelloPayloadSchema, ActionPayloadSchema } from './schemas.js';
+import type { Database } from '@agent-poker/database';
+import { loadTableWithSeats } from '@agent-poker/database';
 
 interface ConnectedClient {
   ws: WebSocket;
@@ -34,9 +36,18 @@ export class GameServerWs {
   private disconnectGraceMs: number;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pongReceived = new WeakSet<WebSocket>();
+  private db: Database | null = null;
 
   constructor() {
     this.disconnectGraceMs = parseInt(process.env['DISCONNECT_GRACE_MS'] ?? '60000', 10);
+  }
+
+  /**
+   * Set database for cross-process table sharing.
+   * When set, handleHello will fall back to DB lookup if table not in memory.
+   */
+  setDatabase(db: Database): void {
+    this.db = db;
   }
 
   /**
@@ -317,7 +328,14 @@ export class GameServerWs {
       return;
     }
 
-    const table = this.tables.get(tableId);
+    let table = this.tables.get(tableId);
+    if (!table && this.db) {
+      try {
+        table = await this.loadTableFromDb(tableId) ?? undefined;
+      } catch (err) {
+        logger.error({ err, tableId }, 'Failed to load table from DB');
+      }
+    }
     if (!table) {
       this.sendError(ws, 'INVALID_ACTION', `Table ${tableId} not found`);
       return;
@@ -558,6 +576,34 @@ export class GameServerWs {
     });
 
     logger.info({ agentId: client.agentId, tableId: client.tableId }, 'Seat token refreshed');
+  }
+
+  /**
+   * Load a table and its seats from DB, reconstruct a TableActor, and register it.
+   */
+  private async loadTableFromDb(tableId: string): Promise<TableActor | null> {
+    if (!this.db) return null;
+
+    const data = await loadTableWithSeats(this.db, tableId);
+    if (!data) return null;
+
+    const table = new TableActor({
+      tableId: data.table.id,
+      maxSeats: data.table.maxSeats,
+      variant: data.table.variant as 'LIMIT' | 'NL' | 'PL',
+      config: data.table.config as any,
+    });
+
+    // Restore seated players
+    for (const seat of data.seats) {
+      if (seat.status === 'seated' && seat.seatToken) {
+        table.addSeat(seat.agentId, seat.seatToken, seat.buyInAmount);
+      }
+    }
+
+    this.registerTable(table);
+    logger.info({ tableId, seats: data.seats.length }, 'Table loaded from DB');
+    return table;
   }
 
   broadcastState(tableId: string, state: any): void {

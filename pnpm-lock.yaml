@@ -124,6 +124,9 @@ importers:
       '@agent-poker/adapters-ledger':
         specifier: workspace:*
         version: link:../../packages/adapters-ledger
+      '@agent-poker/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@agent-poker/hand-history':
         specifier: workspace:*
         version: link:../../packages/hand-history

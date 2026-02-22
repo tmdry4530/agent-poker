@@ -23,6 +23,7 @@
   "dependencies": {
     "@agent-poker/adapters-identity": "workspace:*",
     "@agent-poker/adapters-ledger": "workspace:*",
+    "@agent-poker/database": "workspace:*",
     "@agent-poker/hand-history": "workspace:*",
     "@agent-poker/poker-engine": "workspace:*",
     "jsonwebtoken": "^9.0.3",

@@ -37,7 +37,7 @@ function getCorsOrigins(): string[] | boolean {
   return ['http://localhost:3000'];
 }
 
-export async function startLobbyApi(port = PORT, deps?: { gameServer?: any; ledger?: any; identity?: any }) {
+export async function startLobbyApi(port = PORT, deps?: { gameServer?: any; ledger?: any; identity?: any; db?: any }) {
   const app = Fastify({ logger: false });
 
   // Security headers
@@ -113,14 +113,27 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
     const ledger = await createLedger();
     const identity = await createIdentityProvider();
 
+    // Initialize database (optional, for cross-process table sharing)
+    let db: any = undefined;
+    if (process.env['DATABASE_URL']) {
+      const { createDatabase } = await import('@agent-poker/database');
+      db = createDatabase({ connectionString: process.env['DATABASE_URL'] });
+      logger.info('Database connected for table persistence');
+    }
+
     // Initialize game server
     const gameServer = new GameServerWs();
     const WS_PORT = parseInt(process.env['GAME_SERVER_PORT'] ?? '8081', 10);
     await gameServer.start(WS_PORT);
     logger.info({ port: WS_PORT }, 'WebSocket server started');
 
+    // Inject DB into game server for cross-process table loading
+    if (db) {
+      gameServer.setDatabase(db);
+    }
+
     // Start lobby API with all dependencies
-    const app = await startLobbyApi(PORT, { gameServer, ledger, identity });
+    const app = await startLobbyApi(PORT, { gameServer, ledger, identity, db });
 
     // Graceful shutdown handler
     const shutdown = async (signal: string) => {

@@ -15,6 +15,15 @@ const WS_PORT = parseInt(process.env['GAME_SERVER_PORT'] ?? '8081', 10);
 
 export async function startServer(port = WS_PORT): Promise<GameServerWs> {
   const server = new GameServerWs();
+
+  // Connect to DB for cross-process table sharing (optional)
+  if (process.env['DATABASE_URL']) {
+    const { createDatabase } = await import('@agent-poker/database');
+    const db = createDatabase({ connectionString: process.env['DATABASE_URL'] });
+    server.setDatabase(db);
+    logger.info('Database connected for table loading');
+  }
+
   await server.start(port);
   logger.info({ port }, 'WebSocket server started');
   return server;

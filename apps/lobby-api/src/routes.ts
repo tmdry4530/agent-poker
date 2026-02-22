@@ -17,11 +17,14 @@ import {
   analyzeAgentPair,
 } from '@agent-poker/anti-collusion';
 import type { GameConfig } from '@agent-poker/poker-engine';
+import type { Database } from '@agent-poker/database';
+import { persistTable, persistSeat } from '@agent-poker/database';
 
 interface Deps {
   gameServer?: any;
   ledger?: any;
   identity?: any;
+  db?: Database;
 }
 
 const startTime = Date.now();
@@ -237,6 +240,21 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       },
     });
     server.registerTable(table);
+
+    // Persist to DB for cross-process sharing (best-effort, don't block table creation)
+    if (deps.db) {
+      try {
+        await persistTable(deps.db, {
+          id: tableId,
+          variant,
+          maxSeats,
+          config: config as unknown as Record<string, unknown>,
+        });
+      } catch (err) {
+        logger.error({ err, tableId }, 'Failed to persist table to DB');
+      }
+    }
+
     return { tableId, status: 'open', maxSeats, variant, config };
   });
 
@@ -260,6 +278,22 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       try {
         const seatToken = signSeatToken({ agentId: body.agentId, tableId: req.params.id });
         const seat = table.addSeat(body.agentId, seatToken, body.buyIn);
+
+        // Persist seat to DB for cross-process sharing (best-effort)
+        if (deps.db) {
+          try {
+            await persistSeat(deps.db, {
+              tableId: req.params.id,
+              seatNo: seat.seatIndex,
+              agentId: body.agentId,
+              seatToken,
+              buyInAmount: body.buyIn,
+            });
+          } catch (err) {
+            logger.error({ err, tableId: req.params.id, agentId: body.agentId }, 'Failed to persist seat to DB');
+          }
+        }
+
         return { seatToken, seatIndex: seat.seatIndex, tableId: req.params.id };
       } catch (err) {
         return reply.status(400).send({ error: (err as Error).message });

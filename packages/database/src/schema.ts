@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, bigint, integer, jsonb, unique, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * 1. agents
@@ -20,6 +21,8 @@ export const tables = pgTable('tables', {
   id: text('id').primaryKey(),
   variant: text('variant').notNull().default('HU_LHE'),
   status: text('status', { enum: ['open', 'running', 'closed'] }).notNull().default('open'),
+  maxSeats: integer('max_seats').notNull().default(6),
+  config: jsonb('config'), // GameConfig (blinds, ante, betting mode, etc.)
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -37,6 +40,7 @@ export const seats = pgTable(
     agentId: text('agent_id')
       .notNull()
       .references(() => agents.id),
+    seatToken: text('seat_token'), // JWT seat token for WS auth
     buyInAmount: bigint('buy_in_amount', { mode: 'number' }).notNull(),
     status: text('status', { enum: ['seated', 'left'] }).notNull().default('seated'),
   },
@@ -92,7 +96,7 @@ export const chipAccounts = pgTable('chip_accounts', {
     .unique()
     .references(() => agents.id),
   currency: text('currency').notNull().default('CHIP'),
-  balance: bigint('balance', { mode: 'bigint' }).notNull().default(BigInt(0)),
+  balance: bigint('balance', { mode: 'bigint' }).notNull().default(sql`0`),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
