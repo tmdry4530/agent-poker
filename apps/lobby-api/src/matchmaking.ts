@@ -21,10 +21,18 @@ export class MatchmakingQueue {
   private queue: QueueEntry[] = [];
   private minPlayers: number;
   private onMatchFound: ((entries: QueueEntry[]) => void) | undefined;
+  private botFillTimeoutMs: number;
+  private botFillTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(minPlayers = 2, onMatchFound?: (entries: QueueEntry[]) => void) {
+  constructor(minPlayers = 2, onMatchFound?: (entries: QueueEntry[]) => void, botFillTimeoutMs = 0) {
     this.minPlayers = minPlayers;
     this.onMatchFound = onMatchFound;
+    this.botFillTimeoutMs = botFillTimeoutMs;
+
+    // If bot fill timeout is set, periodically check for stale entries
+    if (this.botFillTimeoutMs > 0) {
+      this.botFillTimer = setInterval(() => this.tryForcedMatch(), 10000);
+    }
   }
 
   /**
@@ -125,9 +133,56 @@ export class MatchmakingQueue {
   }
 
   /**
+   * Force-match entries that have waited longer than botFillTimeoutMs.
+   * Creates a table with even a single player — bots fill the rest.
+   */
+  private tryForcedMatch(): void {
+    if (this.queue.length === 0) return;
+
+    const now = Date.now();
+
+    // Group by variant + blindLevel + maxSeats
+    const groups = new Map<string, QueueEntry[]>();
+    for (const entry of this.queue) {
+      const key = `${entry.variant}:${entry.blindLevel}:${entry.maxSeats}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    }
+
+    for (const [key, entries] of groups) {
+      // Check if oldest entry has waited long enough
+      const oldest = entries[0]!;
+      if (now - oldest.enqueuedAt < this.botFillTimeoutMs) continue;
+
+      // Force match with however many players are available (even 1)
+      const matched = entries.slice(0, oldest.maxSeats);
+      for (const m of matched) {
+        this.dequeue(m.agentId);
+      }
+
+      logger.info(
+        { key, matchedPlayers: matched.map((e) => e.agentId), forced: true },
+        'Forced match (bot fill timeout)',
+      );
+
+      this.onMatchFound?.(matched);
+    }
+  }
+
+  /**
    * Get all entries in the queue.
    */
   getAll(): QueueEntry[] {
     return [...this.queue];
+  }
+
+  /**
+   * Clean up timers.
+   */
+  destroy(): void {
+    if (this.botFillTimer) {
+      clearInterval(this.botFillTimer);
+      this.botFillTimer = null;
+    }
   }
 }

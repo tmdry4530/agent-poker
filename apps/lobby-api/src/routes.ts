@@ -124,7 +124,7 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (botFillManager && entries.length < maxSeats) {
       botFillManager.scheduleFill(tableId, maxSeats);
     }
-  });
+  }, BOT_CONFIG.enabled ? BOT_CONFIG.timeoutMs : 0);
 
   // Liveness probe
   app.get('/healthz', async () => ({ status: 'ok' }));
