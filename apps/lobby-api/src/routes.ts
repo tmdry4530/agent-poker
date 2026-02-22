@@ -447,6 +447,85 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return { agentId, apiKey, displayName: body.displayName };
   });
 
+  // ── GET /api/agents — list all known agents from tables ──
+
+  app.get('/api/agents', async (_req, reply) => {
+    const server = deps.gameServer;
+    if (!server) return { agents: [] };
+
+    const agentMap = new Map<string, { chips: number; tables: number; status: string }>();
+    const tables = server.getAllTables();
+    for (const table of tables) {
+      const info = table.getInfo?.() ?? table;
+      const seats = info.seats ?? table.getSeats?.() ?? [];
+      for (const seat of seats) {
+        if (seat.agentId && seat.status === 'seated') {
+          const existing = agentMap.get(seat.agentId);
+          if (existing) {
+            existing.chips += seat.chips ?? 0;
+            existing.tables += 1;
+          } else {
+            agentMap.set(seat.agentId, { chips: seat.chips ?? 0, tables: 1, status: 'online' });
+          }
+        }
+      }
+    }
+
+    const agents = [...agentMap.entries()].map(([id, info]) => ({
+      id,
+      name: id,
+      status: info.status,
+      balance: info.chips,
+      totalHands: 0,
+      winRate: 0,
+      joinedAt: new Date().toISOString(),
+    }));
+
+    return { agents };
+  });
+
+  // ── GET /api/agents/:id — single agent info ──
+
+  app.get<{ Params: { id: string } }>('/api/agents/:id', async (req, reply) => {
+    const { id } = req.params;
+    const server = deps.gameServer;
+
+    let totalChips = 0;
+    let tableCount = 0;
+    let found = false;
+
+    if (server) {
+      const tables = server.getAllTables();
+      for (const table of tables) {
+        const info = table.getInfo?.() ?? table;
+        const seats = info.seats ?? table.getSeats?.() ?? [];
+        for (const seat of seats) {
+          if (seat.agentId === id && seat.status === 'seated') {
+            totalChips += seat.chips ?? 0;
+            tableCount += 1;
+            found = true;
+          }
+        }
+      }
+    }
+
+    if (!found) {
+      return reply.status(404).send({ error: 'Agent not found' });
+    }
+
+    return {
+      id,
+      name: id,
+      status: 'online',
+      balance: totalChips,
+      totalHands: 0,
+      winRate: 0,
+      joinedAt: new Date().toISOString(),
+      sessions: [],
+      pnlHistory: [],
+    };
+  });
+
   // ── Admin: Collusion Report ─────────────────────────────
 
   app.get<{ Querystring: { agentA?: string; agentB?: string } }>(
