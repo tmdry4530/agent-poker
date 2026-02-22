@@ -30,8 +30,6 @@ jobs:
             dockerfile: docker/Dockerfile.lobby-api
           - app: game-server
             dockerfile: docker/Dockerfile.game-server
-          - app: admin-ui
-            dockerfile: docker/Dockerfile.admin-ui
 
     steps:
       - name: Checkout

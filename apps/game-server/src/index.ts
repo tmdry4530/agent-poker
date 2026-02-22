@@ -22,6 +22,11 @@ export async function startServer(port = WS_PORT): Promise<GameServerWs> {
 
 // Direct execution
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
+  if (process.env['NODE_ENV'] === 'production' && !process.env['SEAT_TOKEN_SECRET']) {
+    logger.error('Missing required env var: SEAT_TOKEN_SECRET');
+    process.exit(1);
+  }
+
   startServer()
     .then((server) => {
       const shutdown = async (signal: string) => {

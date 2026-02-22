@@ -28,5 +28,10 @@
     "@types/node": "^22.19.11",
     "tsx": "^4.19.0"
   },
-  "packageManager": "pnpm@9.15.4"
+  "packageManager": "pnpm@9.15.4",
+  "pnpm": {
+    "overrides": {
+      "tar": ">=7.5.8"
+    }
+  }
 }

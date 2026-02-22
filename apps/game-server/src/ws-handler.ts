@@ -206,6 +206,9 @@ export class GameServerWs {
 
   private handleConnection(ws: WebSocket): void {
     const MAX_MESSAGE_SIZE = 16 * 1024; // 16KB
+    const BYTES_PER_SECOND_LIMIT = 256 * 1024; // 256KB/s per connection
+    let bytesThisSecond = 0;
+    let lastResetTime = Date.now();
 
     // Mark as alive for heartbeat (newly connected = alive)
     this.pongReceived.add(ws);
@@ -215,6 +218,19 @@ export class GameServerWs {
 
     ws.on('message', (data) => {
       const raw = data instanceof Buffer ? data : Buffer.from(data as ArrayBuffer);
+
+      // Bandwidth limiting
+      const now = Date.now();
+      if (now - lastResetTime >= 1000) {
+        bytesThisSecond = 0;
+        lastResetTime = now;
+      }
+      bytesThisSecond += raw.length;
+      if (bytesThisSecond > BYTES_PER_SECOND_LIMIT) {
+        this.sendError(ws, 'RATE_LIMITED', 'Bandwidth limit exceeded');
+        return;
+      }
+
       if (raw.length > MAX_MESSAGE_SIZE) {
         this.sendError(ws, 'INVALID_ACTION', 'Message too large (max 16KB)');
         return;

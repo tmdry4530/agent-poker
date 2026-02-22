@@ -123,6 +123,9 @@ export const agentApiKeys = pgTable('agent_api_keys', {
   agentId: text('agent_id')
     .notNull()
     .references(() => agents.id),
+  keyPrefix: text('key_prefix').notNull().default(''), // first 11 chars (ak_ + 8hex) for indexed lookup
   keyHash: text('key_hash').notNull(), // bcrypt hash
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (t) => ({
+  prefixIdx: index('agent_api_keys_prefix_idx').on(t.keyPrefix),
+}));

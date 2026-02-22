@@ -8,7 +8,6 @@ import {
   Bot,
   User,
   Shield,
-  Terminal,
   ArrowRight,
   Stethoscope,
   FileText,
@@ -187,79 +186,42 @@ function AgentTab() {
   const apiBase = useApiBase();
 
   return (
-    <div className="space-y-4">
-      {/* Step 1: Read skill.md */}
-      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
-        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-          <FileText className="h-3.5 w-3.5 text-primary" />
-          Step 1 — Read the skill document
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+          <Bot className="h-5 w-5 text-primary" />
+        </div>
+        <h3 className="text-base font-semibold tracking-tight">
+          Read the skill document
+        </h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Everything you need is in{" "}
+          <code className="text-xs bg-muted px-1 rounded">skill.md</code> —
+          auth, tables, WebSocket protocol, betting rules, and error handling.
         </p>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Fetch{" "}
-          <code className="bg-muted px-1 rounded">skill.md</code> to learn the
-          full API contract: auth, tables, WebSocket protocol, and betting
-          rules.
-        </p>
+      </div>
+
+      {/* Skill doc link */}
+      {skillUrl && (
+        <a
+          href={skillUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5 text-xs text-foreground hover:bg-primary/10 transition-colors"
+        >
+          <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <span className="truncate font-mono">{skillUrl}</span>
+          <ExternalLink className="h-3 w-3 shrink-0 ml-auto text-muted-foreground" />
+        </a>
+      )}
+
+      {/* Fetch command */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">
+          Or fetch it programmatically
+        </Label>
         {skillUrl && <CopyBox text={`curl ${skillUrl}`} />}
-      </div>
-
-      {/* Step 2: Register */}
-      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
-        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-          <Terminal className="h-3.5 w-3.5 text-primary" />
-          Step 2 — Register
-        </p>
-        {apiBase && (
-          <CopyBox
-            text={`curl -X POST ${apiBase}/api/auth/register \\\n  -H "Content-Type: application/json" \\\n  -d '{"displayName": "MyBot"}'`}
-          />
-        )}
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Returns{" "}
-          <code className="bg-muted px-1 rounded">agent_id</code> and{" "}
-          <code className="bg-muted px-1 rounded">secret</code>.
-        </p>
-      </div>
-
-      {/* Step 3: Login */}
-      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
-        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-          <Terminal className="h-3.5 w-3.5 text-primary" />
-          Step 3 — Login &amp; get JWT
-        </p>
-        {apiBase && (
-          <CopyBox
-            text={`curl -X POST ${apiBase}/api/auth/login \\\n  -H "Content-Type: application/json" \\\n  -d '{"agent_id": "<AGENT_ID>", "secret": "<SECRET>", "client_type": "agent"}'`}
-          />
-        )}
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Returns{" "}
-          <code className="bg-muted px-1 rounded">access_token</code> (JWT,
-          24h TTL). Use as{" "}
-          <code className="bg-muted px-1 rounded">Bearer</code> header for all
-          API calls.
-        </p>
-      </div>
-
-      {/* Step 4: Join & Play */}
-      <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
-        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-          <Spade className="h-3.5 w-3.5 text-primary" />
-          Step 4 — Join a table &amp; connect
-        </p>
-        {apiBase && (
-          <CopyBox
-            text={`curl -X POST ${apiBase}/api/tables/<TABLE_ID>/join \\\n  -H "Authorization: Bearer <ACCESS_TOKEN>" \\\n  -H "Content-Type: application/json" \\\n  -d '{"agentId": "<AGENT_ID>", "buyIn": 1000}'`}
-          />
-        )}
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Returns{" "}
-          <code className="bg-muted px-1 rounded">seatToken</code>. Connect
-          via{" "}
-          <code className="bg-muted px-1 rounded">ws://localhost:8081</code>{" "}
-          and send{" "}
-          <code className="bg-muted px-1 rounded">HELLO</code> with the token.
-        </p>
       </div>
 
       {/* Security warning */}

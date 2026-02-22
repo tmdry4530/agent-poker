@@ -31,6 +31,7 @@ export class PostgresIdentityProvider implements IdentityProvider {
   async registerAgent(displayName: string): Promise<RegistrationResult> {
     const agentId = randomUUID();
     const apiKey = this.generateApiKey();
+    const keyPrefix = apiKey.slice(0, 11); // "ak_" + 8 hex chars
     const keyHash = await bcrypt.hash(apiKey, this.bcryptRounds);
 
     await this.db.transaction(async (tx) => {
@@ -44,6 +45,7 @@ export class PostgresIdentityProvider implements IdentityProvider {
       await tx.insert(agentApiKeys).values({
         id: randomUUID(),
         agentId,
+        keyPrefix,
         keyHash,
         createdAt: new Date(),
       });
@@ -53,31 +55,30 @@ export class PostgresIdentityProvider implements IdentityProvider {
   }
 
   async authenticate(apiKey: string): Promise<AuthResult | null> {
-    const allKeys = await this.db
+    const prefix = apiKey.slice(0, 11);
+    const rows = await this.db
       .select({
-        id: agentApiKeys.id,
         agentId: agentApiKeys.agentId,
         keyHash: agentApiKeys.keyHash,
         displayName: agents.displayName,
         status: agents.status,
       })
       .from(agentApiKeys)
-      .innerJoin(agents, eq(agentApiKeys.agentId, agents.id));
+      .innerJoin(agents, eq(agentApiKeys.agentId, agents.id))
+      .where(eq(agentApiKeys.keyPrefix, prefix));
 
-    for (const row of allKeys) {
-      const isValid = await bcrypt.compare(apiKey, row.keyHash);
-      if (isValid) {
-        if (row.status === 'banned') {
-          return null;
-        }
-        return {
-          agentId: row.agentId,
-          displayName: row.displayName,
-        };
-      }
+    if (rows.length === 0) {
+      // constant-time: run bcrypt even on miss to prevent timing attacks
+      await bcrypt.compare(apiKey, '$2b$10$invalidhashpaddingtoconsumetime000000000000000000');
+      return null;
     }
 
-    return null;
+    const row = rows[0]!;
+    const isValid = await bcrypt.compare(apiKey, row.keyHash);
+    if (!isValid || row.status === 'banned') {
+      return null;
+    }
+    return { agentId: row.agentId, displayName: row.displayName };
   }
 
   async getAgent(agentId: string): Promise<AgentInfo | null> {

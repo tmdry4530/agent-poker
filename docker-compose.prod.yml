@@ -1,22 +1,4 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: agent-poker-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-agentpoker}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-agentpoker}
-    volumes:
-      - agent_poker_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentpoker} -d ${POSTGRES_DB:-agentpoker}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - internal
-
   # Redis removed for MVP1 — not used in application code.
   # MVP2+: add Redis for distributed rate limiting, matchmaking pub/sub, session store.
 
@@ -25,15 +7,17 @@ services:
     container_name: agent-poker-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/docker-entrypoint.sh:/docker-entrypoint-custom.sh:ro
       - nginx_certs:/etc/nginx/certs
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
     entrypoint: ["/docker-entrypoint-custom.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost/nginx-health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1/nginx-health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,8 +26,6 @@ services:
       lobby-api:
         condition: service_healthy
       game-server:
-        condition: service_healthy
-      admin-ui:
         condition: service_healthy
     networks:
       - internal
@@ -59,19 +41,17 @@ services:
       - "8080"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
+      DATABASE_URL: ${DATABASE_URL}
       PORT: 8080
       SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://admin-ui:3000}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://clawpoker.live}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - internal
 
@@ -86,48 +66,16 @@ services:
       - "8081"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER:-agentpoker}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-agentpoker}
+      DATABASE_URL: ${DATABASE_URL}
       PORT: 8081
       SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://admin-ui:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://clawpoker.live}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"const s=require('net').connect(8081,'localhost',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - internal
-
-  admin-ui:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.admin-ui
-    container_name: agent-poker-admin-ui
-    restart: unless-stopped
-    # No host port binding — nginx handles external traffic
-    expose:
-      - "3000"
-    environment:
-      NODE_ENV: production
-      # Browser-accessible URLs (NEXT_PUBLIC_ vars are embedded at build time for client JS)
-      NEXT_PUBLIC_LOBBY_API_URL: http://localhost:8080
-      NEXT_PUBLIC_GAME_SERVER_URL: ws://localhost:8081
-      # Internal Docker network URLs (for server-side API calls / SSR proxy)
-      INTERNAL_LOBBY_API_URL: http://lobby-api:8080
-      INTERNAL_GAME_SERVER_URL: ws://game-server:8081
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    depends_on:
-      - lobby-api
-      - game-server
     networks:
       - internal
 
@@ -136,5 +84,6 @@ networks:
     driver: bridge
 
 volumes:
-  agent_poker_pgdata:
   nginx_certs:
+  certbot_www:
+  certbot_conf:

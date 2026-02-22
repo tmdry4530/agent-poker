@@ -1,18 +1,17 @@
 #!/bin/sh
-# Lobby-API entrypoint: run DB migrations before starting the server.
+# Lobby-API entrypoint: verify DB connectivity, run migrations, then start server.
 set -e
 
 echo "Checking database connection..."
-# Wait for postgres to be truly ready (healthcheck may pass before accepting connections)
-MAX_RETRIES=30
-RETRY_INTERVAL=2
+MAX_RETRIES=3
+RETRY_INTERVAL=5
 for i in $(seq 1 $MAX_RETRIES); do
   if node -e "
-    const url = new URL(process.env.DATABASE_URL.replace(/^postgres:\/\//, 'http://'));
+    const url = new URL(process.env.DATABASE_URL.replace(/^postgres(ql)?:\/\//, 'http://'));
     const net = require('net');
     const s = net.connect(Number(url.port) || 5432, url.hostname, () => { s.end(); process.exit(0); });
     s.on('error', () => process.exit(1));
-    setTimeout(() => process.exit(1), 3000);
+    setTimeout(() => process.exit(1), 5000);
   " 2>/dev/null; then
     echo "Database connection established."
     break

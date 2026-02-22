@@ -79,7 +79,7 @@ else
 fi
 
 # 4. Required environment variables
-REQUIRED_VARS=("POSTGRES_PASSWORD" "SEAT_TOKEN_SECRET" "CORS_ORIGINS")
+REQUIRED_VARS=("DATABASE_URL" "SEAT_TOKEN_SECRET" "AUTH_JWT_SECRET")
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -n "${!var:-}" ]; then
     log_ok "Env var ${var}: set"
@@ -102,9 +102,12 @@ if [ -n "${FREE_SPACE_KB}" ]; then
   fi
 fi
 
-# 6. TLS certificates
-if [ -d "${PROJECT_DIR}/nginx/certs" ] && [ -f "${PROJECT_DIR}/nginx/certs/cert.pem" ]; then
-  log_ok "TLS certificates: found"
+# 6. TLS certificates (Let's Encrypt or self-signed)
+LE_CERT="/etc/letsencrypt/live/api.clawpoker.live/fullchain.pem"
+if [ -f "${LE_CERT}" ]; then
+  log_ok "TLS certificates: Let's Encrypt found"
+elif [ -d "${PROJECT_DIR}/nginx/certs" ] && [ -f "${PROJECT_DIR}/nginx/certs/cert.pem" ]; then
+  log_ok "TLS certificates: local certs found"
 else
   log_warn "TLS certificates: not found (self-signed will be auto-generated)"
 fi
@@ -133,6 +136,19 @@ fi
 
 echo ""
 
+# ── Certbot (first-time only) ─────────────
+
+DOMAIN="${DOMAIN:-api.clawpoker.live}"
+CERTBOT_WEBROOT="/var/www/certbot"
+
+if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ] && command -v certbot &>/dev/null; then
+  echo "No Let's Encrypt certificate found for ${DOMAIN}."
+  echo "Run certbot after nginx starts:"
+  echo "  sudo certbot certonly --webroot -w ${CERTBOT_WEBROOT} -d ${DOMAIN} --non-interactive --agree-tos -m <your-email>"
+  echo "  docker compose -f ${COMPOSE_FILE} restart nginx"
+  echo ""
+fi
+
 # ── Deploy ──────────────────────────────────
 
 # Load .env if present
@@ -150,13 +166,6 @@ if [ "${SKIP_BUILD}" = false ]; then
   echo ""
 fi
 
-# Backup database before deploy (if running)
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "agent-poker-postgres"; then
-  echo "Existing database detected. Creating pre-deploy backup..."
-  "${SCRIPT_DIR}/backup-db.sh" || log_warn "Pre-deploy backup failed (non-fatal)"
-  echo ""
-fi
-
 # Deploy
 echo "Starting services..."
 docker compose -f "${COMPOSE_FILE}" up -d
@@ -166,10 +175,9 @@ echo "Waiting for health checks..."
 sleep 10
 
 # Check service status
-SERVICES=$(docker compose -f "${COMPOSE_FILE}" ps --format json 2>/dev/null | head -20)
 UNHEALTHY=0
 
-for SVC in postgres nginx lobby-api game-server admin-ui; do
+for SVC in nginx lobby-api game-server; do
   STATUS=$(docker inspect --format='{{.State.Health.Status}}' "agent-poker-${SVC}" 2>/dev/null || echo "not_found")
   case "${STATUS}" in
     healthy)   log_ok "${SVC}: healthy" ;;
@@ -188,8 +196,8 @@ fi
 
 echo ""
 echo "  Endpoints:"
-echo "    HTTPS:     https://localhost"
-echo "    Admin UI:  https://localhost/"
-echo "    API:       https://localhost/api/"
-echo "    WebSocket: wss://localhost/ws"
+echo "    HTTPS:     https://api.clawpoker.live"
+echo "    API:       https://api.clawpoker.live/api/"
+echo "    WebSocket: wss://api.clawpoker.live/ws"
+echo "    Health:    https://api.clawpoker.live/healthz"
 echo ""

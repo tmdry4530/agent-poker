@@ -23,7 +23,11 @@ function getCorsOrigins(): string[] | boolean {
     if (!corsOrigins) {
       throw new Error('CORS_ORIGINS (or ALLOWED_ORIGINS) must be set in production. Example: CORS_ORIGINS=https://example.com,https://admin.example.com');
     }
-    return corsOrigins.split(',').map((o) => o.trim());
+    const origins = corsOrigins.split(',').map((o) => o.trim());
+    if (origins.includes('*')) {
+      throw new Error('CORS_ORIGINS must not contain wildcard (*) in production.');
+    }
+    return origins;
   }
 
   // Development: use CORS_ORIGINS if set, otherwise default to localhost:3000
@@ -88,8 +92,20 @@ export async function startLobbyApi(port = PORT, deps?: { gameServer?: any; ledg
   return app;
 }
 
+function validateEnv(): void {
+  const required = ['AUTH_JWT_SECRET', 'SEAT_TOKEN_SECRET', 'DATABASE_URL'];
+  if (process.env['NODE_ENV'] === 'production') {
+    const missing = required.filter(k => !process.env[k]);
+    if (missing.length > 0) {
+      throw new Error(`Missing required env vars: ${missing.join(', ')}`);
+    }
+  }
+}
+
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
   (async () => {
+    validateEnv();
+
     const { createLedger, createIdentityProvider } = await import('./adapters.js');
     const { GameServerWs } = await import('@agent-poker/game-server');
 
