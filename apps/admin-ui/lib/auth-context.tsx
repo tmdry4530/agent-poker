@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
-      router.push("/");
+      router.push("/tables");
     },
     [router],
   );
