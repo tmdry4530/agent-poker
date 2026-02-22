@@ -24,10 +24,30 @@ for i in $(seq 1 $MAX_RETRIES); do
   sleep $RETRY_INTERVAL
 done
 
-# Run drizzle migrations if migration files exist
+# Run SQL migrations directly (no npx/drizzle-kit needed at runtime)
 if [ -d "/app/drizzle" ] && [ "$(ls -A /app/drizzle/*.sql 2>/dev/null)" ]; then
   echo "Running database migrations..."
-  npx drizzle-kit migrate 2>&1
+  node --dns-result-order=ipv4first -e "
+    const fs = require('fs');
+    const path = require('path');
+    (async () => {
+      const postgres = (await import('postgres')).default;
+      const sql = postgres(process.env.DATABASE_URL, { connect_timeout: 10 });
+      const files = fs.readdirSync('/app/drizzle')
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+      for (const file of files) {
+        const content = fs.readFileSync(path.join('/app/drizzle', file), 'utf8');
+        const statements = content.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
+        for (const stmt of statements) {
+          await sql.unsafe(stmt);
+        }
+        console.log('Applied: ' + file);
+      }
+      await sql.end();
+      console.log('All migrations applied.');
+    })().catch(err => { console.error('Migration failed:', err.message); process.exit(1); });
+  "
   echo "Migrations complete."
 else
   echo "No migration files found, skipping migrations."
