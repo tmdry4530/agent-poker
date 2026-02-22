@@ -24,15 +24,16 @@ for i in $(seq 1 $MAX_RETRIES); do
   sleep $RETRY_INTERVAL
 done
 
-# Run SQL migrations directly (no npx/drizzle-kit needed at runtime)
+# Run SQL migrations directly using pg (available via drizzle-orm peer dep)
 if [ -d "/app/drizzle" ] && [ "$(ls -A /app/drizzle/*.sql 2>/dev/null)" ]; then
   echo "Running database migrations..."
   node --dns-result-order=ipv4first -e "
     const fs = require('fs');
     const path = require('path');
+    const { Client } = require('pg');
     (async () => {
-      const postgres = (await import('postgres')).default;
-      const sql = postgres(process.env.DATABASE_URL, { connect_timeout: 10 });
+      const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000 });
+      await client.connect();
       const files = fs.readdirSync('/app/drizzle')
         .filter(f => f.endsWith('.sql'))
         .sort();
@@ -40,15 +41,15 @@ if [ -d "/app/drizzle" ] && [ "$(ls -A /app/drizzle/*.sql 2>/dev/null)" ]; then
         const content = fs.readFileSync(path.join('/app/drizzle', file), 'utf8');
         const statements = content.split('--> statement-breakpoint').map(s => s.trim()).filter(Boolean);
         for (const stmt of statements) {
-          await sql.unsafe(stmt);
+          await client.query(stmt);
         }
         console.log('Applied: ' + file);
       }
-      await sql.end();
+      await client.end();
       console.log('All migrations applied.');
-    })().catch(err => { console.error('Migration failed:', err.message); process.exit(1); });
-  "
-  echo "Migrations complete."
+    })().catch(err => { console.error('Migration warning:', err.message); process.exit(0); });
+  " || echo "Migration skipped (non-fatal)."
+  echo "Migrations step done."
 else
   echo "No migration files found, skipping migrations."
 fi
