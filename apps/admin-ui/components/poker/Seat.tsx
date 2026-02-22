@@ -13,8 +13,10 @@ export interface SeatData {
   isActive: boolean;
   isWinner: boolean;
   status: "seated" | "empty" | "left";
-  position?: string; // BTN, SB, BB, UTG, etc.
-  hasButton?: boolean; // Dealer button indicator
+  position?: string;
+  hasButton?: boolean;
+  isMine?: boolean;
+  showCards?: boolean;
 }
 
 interface SeatProps {
@@ -23,124 +25,156 @@ interface SeatProps {
   betPosition?: { top: string; left: string };
 }
 
-const getPositionColor = (pos?: string) => {
-  if (!pos) return "text-zinc-500";
-  if (pos === "BTN" || pos === "D") return "text-yellow-400";
-  if (pos === "SB") return "text-blue-400";
-  if (pos === "BB") return "text-red-400";
-  return "text-zinc-400";
+const positionFullNames: Record<string, string> = {
+  BTN: "Button (Dealer)",
+  "BTN/SB": "Button / Small Blind",
+  SB: "Small Blind",
+  BB: "Big Blind",
+  UTG: "Under the Gun",
+  HJ: "Hijack",
+  CO: "Cut Off",
 };
 
 const getAvatarColor = (id?: string | null) => {
-  if (!id) return "from-zinc-600 to-zinc-900";
+  if (!id) return "from-zinc-600 to-zinc-800";
   const num = id.charCodeAt(id.length - 1) % 6;
   const colors = [
-    "from-blue-600 to-blue-900",
-    "from-purple-600 to-purple-900",
-    "from-pink-600 to-pink-900",
-    "from-orange-600 to-orange-900",
-    "from-cyan-600 to-cyan-900",
-    "from-indigo-600 to-indigo-900"
+    "from-blue-500 to-blue-700",
+    "from-purple-500 to-purple-700",
+    "from-pink-500 to-pink-700",
+    "from-orange-500 to-orange-700",
+    "from-cyan-500 to-cyan-700",
+    "from-indigo-500 to-indigo-700",
   ];
-  return colors[num];
+  return colors[num]!;
 };
 
 export function Seat({ seat, position, betPosition }: SeatProps) {
   const isEmpty = !seat.agentId || seat.status === "empty";
+  const name = seat.agentId?.replace("agent-", "") ?? "";
 
   return (
     <>
-      {/* Seat element */}
+      {/* Seat */}
       <div
-        className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-all duration-300 hover:scale-105"
+        className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
         style={{ top: position.top, left: position.left }}
       >
-        <div className={cn(
-          "relative flex flex-col items-center p-3 rounded-2xl border border-white/5 backdrop-blur-md overflow-hidden transition-all",
-          isEmpty
-            ? "w-[100px] bg-black/40 border-dashed border-white/20"
-            : seat.isActive
-              ? "w-[120px] bg-gradient-to-b from-emerald-900/80 to-black/90 border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.4)] ring-2 ring-emerald-400 ring-offset-2 ring-offset-zinc-900 animate-pulse"
-              : seat.isWinner
-                ? "w-[120px] bg-gradient-to-b from-yellow-900/80 to-black/90 border-yellow-500 shadow-[0_0_30px_rgba(234,179,8,0.4)]"
-                : seat.hasFolded
-                  ? "w-[120px] bg-black/80 opacity-40 border-zinc-800" // Opacity covers the whole seat
-                  : "w-[120px] bg-gradient-to-b from-zinc-900/80 to-black/90 border-zinc-700/80 shadow-2xl"
-        )}>
-          {/* Active Glow Inner */}
-          {seat.isActive && (
-            <div className="absolute inset-0 rounded-2xl shadow-[inset_0_0_20px_rgba(16,185,129,0.4)] pointer-events-none" />
+        <div
+          className={cn(
+            "relative flex flex-col items-center rounded-xl border backdrop-blur-sm transition-all",
+            isEmpty
+              ? "w-[90px] bg-white/[0.03] border-dashed border-white/10 py-4"
+              : seat.isMine
+                ? "w-[120px] bg-cyan-950/80 border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.4)] py-2.5"
+                : seat.isWinner
+                  ? "w-[120px] bg-yellow-950/80 border-yellow-400 shadow-[0_0_25px_rgba(234,179,8,0.4)] py-2.5"
+                  : seat.hasFolded
+                    ? "w-[120px] bg-black/80 border-zinc-800/40 py-2.5 opacity-45 grayscale"
+                    : seat.isActive
+                      ? "w-[120px] bg-zinc-900/80 border-emerald-500/60 py-2.5"
+                      : "w-[120px] bg-zinc-900/80 border-zinc-700/50 py-2.5"
+          )}
+        >
+          {/* My agent glow ring */}
+          {seat.isMine && (
+            <div className="absolute -inset-0.5 rounded-xl border-2 border-cyan-400/70 pointer-events-none" />
+          )}
+          {/* Active turn pulse */}
+          {seat.isActive && !seat.isMine && (
+            <div className="absolute -inset-0.5 rounded-xl border border-emerald-500/50 animate-pulse pointer-events-none" />
           )}
 
           {isEmpty ? (
-            <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-2">
-              <span className="text-xs uppercase font-semibold">Seat {seat.seatIndex + 1}</span>
-              <span className="text-[10px]">Empty</span>
-            </div>
+            <span className="text-[10px] text-zinc-600 uppercase tracking-wider">
+              Empty
+            </span>
           ) : (
             <>
-              {/* Top Section: Position + Name */}
-              <div className="w-full flex justify-between items-center mb-1">
+              {/* Position + Name */}
+              <div className="w-full flex items-center justify-between px-2.5 mb-1.5">
                 {seat.position ? (
-                  <span className="px-1.5 py-0.5 rounded text-[11px] font-black uppercase drop-shadow-md bg-black/80 text-zinc-300 border border-white/20">
+                  <span
+                    className="text-[10px] font-bold uppercase text-zinc-400 bg-black/50 px-1.5 py-0.5 rounded cursor-help"
+                    title={positionFullNames[seat.position] ?? seat.position}
+                  >
                     {seat.position}
                   </span>
-                ) : <span/>}
-                
-                <span className={cn(
-                  "text-[11px] font-bold truncate max-w-[70px] drop-shadow-md",
-                  seat.isActive ? "text-white" : "text-zinc-300"
-                )}>
-                  {seat.agentId?.replace("agent-", "")}
+                ) : (
+                  <span />
+                )}
+                <span className="text-[11px] font-semibold text-zinc-200 truncate max-w-[65px]">
+                  {name}
                 </span>
               </div>
 
-              {/* Middle Section: Avatar/Stack */}
-              <div className="relative w-full flex flex-col items-center my-1 z-10">
-                {/* Dealer Button Overlay */}
+              {/* Avatar */}
+              <div className="relative">
                 {seat.hasButton && (
-                  <div className="absolute -top-2 -right-3 z-40 flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-sm font-black text-black border-4 border-zinc-300 ring-1 ring-black shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
+                  <div className="absolute -top-1.5 -right-3 z-20 w-5 h-5 rounded-full bg-white text-[10px] font-black text-black flex items-center justify-center border-2 border-zinc-400 shadow-md">
                     D
                   </div>
                 )}
-                
-                <div className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full text-lg font-black shadow-inner border border-white/10 relative",
-                  seat.isActive 
-                    ? "bg-gradient-to-br from-emerald-400 to-emerald-700 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
-                    : `bg-gradient-to-br ${getAvatarColor(seat.agentId)} text-white`
-                )}>
-                  {seat.agentId?.replace("agent-", "").charAt(0).toUpperCase()}
-                  {/* Folded Strikethrough Overlay */}
+                <div
+                  className={cn(
+                    "w-11 h-11 rounded-full flex items-center justify-center text-base font-black text-white shadow-md border-2 border-white/20 relative",
+                    seat.isMine
+                      ? "bg-gradient-to-br from-cyan-400 to-cyan-600 shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+                      : `bg-gradient-to-br ${getAvatarColor(seat.agentId)}`
+                  )}
+                >
+                  {name.charAt(0).toUpperCase()}
                   {seat.hasFolded && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full backdrop-blur-[1px]">
-                      <div className="w-full h-1 bg-red-500/80 -rotate-45 shadow-sm" />
+                    <div className="absolute inset-0 rounded-full bg-black/70 flex items-center justify-center">
+                      <div className="w-full h-0.5 bg-red-500 -rotate-45" />
                     </div>
                   )}
                 </div>
-                
-                <div className="mt-2 px-3 py-1 bg-black/60 rounded-full border border-white/10 shadow-inner flex items-center justify-center min-w-[80px]">
-                  <span className="text-xs font-mono font-bold text-amber-400 drop-shadow-[0_0_2px_rgba(251,191,36,0.8)]">
-                    ${seat.chips.toLocaleString()}
-                  </span>
-                </div>
               </div>
 
-              {/* Status Row */}
-              <div className="h-5 mt-1 flex items-center justify-center">
+              {/* Chips */}
+              <div className="mt-1.5 px-3 py-0.5 bg-black/40 rounded-full">
+                <span
+                  className={cn(
+                    "text-xs font-mono font-bold",
+                    seat.hasFolded ? "text-zinc-500" : "text-amber-400"
+                  )}
+                >
+                  ${seat.chips.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Status badge */}
+              <div className="h-5 mt-0.5 flex items-center justify-center gap-1">
+                {seat.isMine && (
+                  <span className="px-1.5 py-0.5 bg-cyan-900/60 border border-cyan-500/40 rounded text-[9px] font-black text-cyan-300 uppercase tracking-widest">
+                    You
+                  </span>
+                )}
                 {seat.hasFolded ? (
-                  <span aria-label="Player Folded" className="px-2 py-0.5 bg-red-900/80 rounded border border-red-500/50 text-[11px] font-black text-white uppercase tracking-widest drop-shadow-md shadow-md">Fold</span>
+                  <span className="px-2 py-0.5 bg-zinc-800 rounded text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Fold
+                  </span>
                 ) : seat.isAllIn ? (
-                  <span aria-label="Player All-In" className="text-[10px] font-black text-amber-500 uppercase tracking-widest animate-pulse drop-shadow-md">All-In</span>
+                  <span className="px-2 py-0.5 bg-amber-900/80 border border-amber-500/50 rounded text-[9px] font-black text-amber-300 uppercase tracking-widest animate-pulse">
+                    All-In
+                  </span>
                 ) : seat.isActive ? (
-                  <span aria-label="Player Thinking" className="text-[10px] font-black text-emerald-400 uppercase tracking-widest drop-shadow-md">Thinking</span>
+                  <span className="px-2 py-0.5 bg-emerald-900/60 border border-emerald-500/40 rounded text-[9px] font-bold text-emerald-300 uppercase tracking-widest">
+                    Thinking
+                  </span>
                 ) : null}
               </div>
 
-              {/* Cards (Inside the seat box explicitly) */}
-              {!isEmpty && seat.holeCards && seat.holeCards.length > 0 && (
-                <div className="mt-2 w-full flex justify-center origin-top scale-90 transition-transform duration-300 hover:scale-[1.2] hover:z-50 cursor-pointer" title="Hole Cards">
-                  <CardHand cards={seat.holeCards} size="lg" />
+              {/* Hole Cards */}
+              {seat.holeCards.length > 0 && (
+                <div className="mt-1.5 flex justify-center">
+                  <CardHand
+                    cards={seat.holeCards}
+                    size="md"
+                    faceDown={seat.showCards === false}
+                    dimmed={seat.hasFolded}
+                  />
                 </div>
               )}
             </>
@@ -148,10 +182,10 @@ export function Seat({ seat, position, betPosition }: SeatProps) {
         </div>
       </div>
 
-      {/* Bet Action Wrapper */}
+      {/* Bet chip */}
       {seat.currentBet > 0 && betPosition && (
         <div
-          className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center transition-all"
+          className="absolute -translate-x-1/2 -translate-y-1/2 z-20"
           style={{ top: betPosition.top, left: betPosition.left }}
         >
           <ChipStack amount={seat.currentBet} size="md" />

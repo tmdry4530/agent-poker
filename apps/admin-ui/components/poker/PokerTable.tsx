@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useApiData } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth-context";
 import { TableFelt } from "./TableFelt";
 import { Seat, type SeatData } from "./Seat";
 import { CommunityCards } from "./CommunityCards";
@@ -63,23 +65,23 @@ function getPositions(playerCount: number, dealerIndex: number): Map<number, str
   return positions;
 }
 
-// 6-seat positions (percentages): top-right, right, bottom-right, bottom-left, left, top-left
+// 6-seat positions: evenly distributed around the oval
 const seatPositions = [
-  { top: "22%", left: "70%" },   // 0: top right
-  { top: "50%", left: "82%" },   // 1: right
-  { top: "78%", left: "70%" },   // 2: bottom right
-  { top: "78%", left: "30%" },   // 3: bottom left
-  { top: "50%", left: "18%" },   // 4: left
-  { top: "22%", left: "30%" },   // 5: top left
+  { top: "15%", left: "68%" },   // 0: top right
+  { top: "50%", left: "88%" },   // 1: right
+  { top: "85%", left: "68%" },   // 2: bottom right
+  { top: "85%", left: "32%" },   // 3: bottom left
+  { top: "50%", left: "12%" },   // 4: left
+  { top: "15%", left: "32%" },   // 5: top left
 ];
 
 const betPositions = [
-  { top: "35%", left: "62%" },   // 0: top right
-  { top: "50%", left: "68%" },   // 1: right
-  { top: "65%", left: "62%" },   // 2: bottom right
-  { top: "65%", left: "38%" },   // 3: bottom left
-  { top: "50%", left: "32%" },   // 4: left
-  { top: "35%", left: "38%" },   // 5: top left
+  { top: "30%", left: "60%" },   // 0: top right
+  { top: "50%", left: "72%" },   // 1: right
+  { top: "70%", left: "60%" },   // 2: bottom right
+  { top: "70%", left: "40%" },   // 3: bottom left
+  { top: "50%", left: "28%" },   // 4: left
+  { top: "30%", left: "40%" },   // 5: top left
 ];
 
 async function fetchTableState(tableId: string): Promise<{ liveState: LiveState | null; seats: any[] }> {
@@ -119,6 +121,8 @@ async function fetchTableState(tableId: string): Promise<{ liveState: LiveState 
 }
 
 export function PokerTable({ tableId }: { tableId: string }) {
+  const { role, agentId: myAgentId } = useAuth();
+  const isSpectator = role === "spectator";
   const fetcher = useCallback(() => fetchTableState(tableId), [tableId]);
   const { data, loading } = useApiData(fetcher, 2000);
 
@@ -152,6 +156,7 @@ export function PokerTable({ tableId }: { tableId: string }) {
 
       // Find player in live state
       const player = liveState?.players.find((p) => p.id === raw.agentId);
+      const isMine = !isSpectator && raw.agentId === myAgentId;
       return {
         seatIndex: i,
         agentId: raw.agentId,
@@ -167,22 +172,42 @@ export function PokerTable({ tableId }: { tableId: string }) {
         status: raw.status ?? "seated",
         position: positionMap.get(i),
         hasButton: i === dealerIndex && activePlayers > 0,
+        isMine,
+        showCards: isSpectator ? true : isMine,
       };
     });
-  }, [maxSeats, rawSeats, liveState]);
+  }, [maxSeats, rawSeats, liveState, isSpectator, myAgentId]);
 
   // Determine active player state for dummy UI
   const activePlayer = seats.find(s => s.isActive);
   const highestBet = liveState ? Math.max(...liveState.players.map(p => p.currentBet)) : 0;
   const activePlayerCallAmount = activePlayer ? highestBet - activePlayer.currentBet : 0;
 
+  // Build action log with color coding
+  const actionLog = useMemo(() => {
+    if (!liveState) return [];
+    const logs: Array<{ text: string; type: "fold" | "bet" | "allin" | "check" | "call" | "raise" }> = [];
+    for (const p of liveState.players) {
+      const name = p.id.replace("agent-", "");
+      if (p.hasFolded) logs.push({ text: `${name} folds`, type: "fold" });
+      else if (p.isAllIn) logs.push({ text: `${name} all-in $${p.currentBet}`, type: "allin" });
+      else if (p.currentBet > 0) logs.push({ text: `${name} bets $${p.currentBet}`, type: "bet" });
+    }
+    if (liveState.lastAction) {
+      const n = liveState.lastAction.agentId.replace("agent-", "");
+      const act = liveState.lastAction.action.toLowerCase();
+      const amtStr = liveState.lastAction.amount ? ` $${liveState.lastAction.amount}` : "";
+      const type = act.includes("fold") ? "fold" : act.includes("all") ? "allin" : act.includes("raise") ? "raise" : act.includes("call") ? "call" : act.includes("check") ? "check" : "bet";
+      logs.push({ text: `${n} ${liveState.lastAction.action}${amtStr}`, type });
+    }
+    return logs;
+  }, [liveState]);
+
   return (
-    <div className="flex flex-col items-center justify-start w-full max-w-[1400px] mx-auto min-h-[900px] pb-8 overflow-hidden">
+    <div className="flex flex-col items-center justify-start w-full max-w-[1400px] mx-auto pb-4 overflow-hidden">
       {/* Table Area */}
-      <div className="relative w-full h-[650px] sm:h-[750px] flex justify-center -mt-8">
-        {/* Decrease vertical scaling slightly to make room for panel */}
-        <div className="w-full h-full relative scale-[0.65] sm:scale-[0.70] md:scale-[0.85] lg:scale-[0.95] xl:scale-[1.0] flex items-center justify-center origin-top pointer-events-none">
-          {/* Re-enable pointer events for the table felt content */}
+      <div className="relative w-full h-[600px] sm:h-[700px] flex justify-center">
+        <div className="w-full h-full relative scale-[0.60] sm:scale-[0.65] md:scale-[0.80] lg:scale-[0.90] xl:scale-[1.0] flex items-center justify-center origin-top pointer-events-none">
           <div className="pointer-events-auto w-full h-full flex items-center justify-center">
             <TableFelt>
               {/* Seats */}
@@ -195,46 +220,38 @@ export function PokerTable({ tableId }: { tableId: string }) {
                 />
               ))}
 
-              {/* Community Cards */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] pointer-events-auto">
-                {liveState && (
-                  <div className="flex flex-col items-center gap-4">
-                    <CommunityCards cards={liveState.communityCards} />
-                    <div className="bg-black/40 backdrop-blur-md px-6 py-1.5 rounded-full border border-white/5 flex items-center gap-3">
-                      <span className="text-zinc-400 font-mono text-xs uppercase tracking-widest font-bold">
-                        {liveState.street || "Preflop"}
-                      </span>
-                      <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                      <span className="text-white font-mono font-bold">
-                        Pot: ${liveState.potAmount}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Center area: community cards + pot */}
-              <div
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[40%] z-30 flex flex-col items-center gap-6"
-              >
+              {/* Center: community cards + pot + turn indicator */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-3 pointer-events-auto">
                 {loading ? (
                   <div className="text-emerald-400 font-mono text-sm animate-pulse">Initializing Table...</div>
                 ) : liveState ? (
                   <>
                     {activePlayer && activePlayer.agentId && (
-                      <div className="absolute -top-16 px-4 py-1.5 bg-emerald-500/20 border border-emerald-500/50 rounded-full backdrop-blur-sm animate-pulse flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span className="text-xs font-bold text-emerald-100 tracking-wider">
-                          {activePlayer.agentId.replace("agent-", "").toUpperCase()}'S TURN
+                      <div className="px-4 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full backdrop-blur-sm flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[11px] font-bold text-emerald-200 tracking-wider uppercase">
+                          {activePlayer.agentId.replace("agent-", "")}'s Turn
                         </span>
                       </div>
                     )}
-                    {/* CommunityCards and PotBadge are now handled by the new "Community Cards" block above */}
+                    <CommunityCards cards={liveState.communityCards} />
+                    <div className="bg-black/60 backdrop-blur-lg px-6 py-2 rounded-2xl border border-white/10 flex items-center gap-4 shadow-xl">
+                      <span className="text-zinc-400 font-mono text-xs uppercase tracking-widest font-bold">
+                        {liveState.street || "Preflop"}
+                      </span>
+                      <div className="w-px h-5 bg-zinc-700" />
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm" />
+                        <span className="text-amber-300 font-mono font-black text-lg tracking-tight">
+                          ${liveState.potAmount.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center gap-4 bg-black/40 p-6 rounded-3xl border border-white/5 backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-3 bg-black/40 p-6 rounded-2xl border border-white/5 backdrop-blur-sm">
                     <PotBadge amount={0} />
-                    <span className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Waiting for players...</span>
+                    <span className="text-[11px] uppercase tracking-widest text-zinc-500 font-bold">Waiting for players...</span>
                   </div>
                 )}
               </div>
@@ -242,22 +259,51 @@ export function PokerTable({ tableId }: { tableId: string }) {
           </div>
         </div>
 
-        {/* Hero Action Controls - Integrated flush with bottom of the table area */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[800px] px-4 shrink-0 transition-opacity z-50 pointer-events-auto">
-          {activePlayer && (
+        {/* Hero Action Controls - Only shown for agents, hidden for spectators */}
+        {activePlayer && role !== 'spectator' && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[800px] px-4 z-50 pointer-events-auto">
             <div className="bg-black/95 border border-white/10 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.8)] backdrop-blur-xl pb-2">
-              <ActionControls 
+              <ActionControls
                 potAmount={liveState?.potAmount || 0}
-                minBet={highestBet > 0 ? highestBet * 2 : 20}   // mock minbet
+                minBet={highestBet > 0 ? highestBet * 2 : 20}
                 playerChips={activePlayer.chips}
                 canCheck={activePlayerCallAmount === 0}
                 callAmount={activePlayerCallAmount}
                 onAction={(act, amt) => console.log(`Action: ${act}`, amt ? `Amount: ${amt}` : "")}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {/* Action Log */}
+      {actionLog.length > 0 && (
+        <div className="w-full max-w-[900px] mx-auto px-4 mt-2">
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Live Actions</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {actionLog.map((log, i) => {
+                const colors = {
+                  fold: "text-zinc-500 border-zinc-700 bg-zinc-900/60",
+                  bet: "text-emerald-300 border-emerald-800 bg-emerald-950/60",
+                  call: "text-emerald-300 border-emerald-800 bg-emerald-950/60",
+                  check: "text-sky-300 border-sky-800 bg-sky-950/60",
+                  raise: "text-blue-300 border-blue-800 bg-blue-950/60",
+                  allin: "text-amber-300 border-amber-700 bg-amber-950/60",
+                };
+                return (
+                  <span key={i} className={cn("text-xs font-mono px-2.5 py-1 rounded-md border", colors[log.type])}>
+                    {log.text}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

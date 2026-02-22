@@ -9,7 +9,7 @@ import { AuthGuard } from "@/components/auth-guard";
 const PUBLIC_ROUTES = ["/", "/login"];
 
 /** Authenticated routes accessible to spectators (prefix match) */
-const SPECTATOR_ROUTES = ["/tables", "/table/"];
+const SPECTATOR_ROUTES = ["/dashboard", "/tables", "/table/"];
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.includes(pathname);

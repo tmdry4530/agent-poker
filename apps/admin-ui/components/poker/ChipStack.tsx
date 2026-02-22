@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { formatChips } from "@/lib/utils";
 
 interface ChipStackProps {
   amount: number;
@@ -7,36 +6,42 @@ interface ChipStackProps {
   size?: "sm" | "md" | "lg";
 }
 
+const getChipColor = (amt: number) => {
+  if (amt >= 5000) return "from-orange-400 to-orange-600 border-orange-300 shadow-orange-500/40";
+  if (amt >= 1000) return "from-yellow-400 to-yellow-600 border-yellow-300 shadow-yellow-500/40";
+  if (amt >= 500) return "from-purple-400 to-purple-600 border-purple-300 shadow-purple-500/40";
+  if (amt >= 100) return "from-zinc-300 to-zinc-500 border-zinc-200 shadow-zinc-400/40";
+  if (amt >= 25) return "from-blue-400 to-blue-600 border-blue-300 shadow-blue-500/40";
+  return "from-red-400 to-red-600 border-red-300 shadow-red-500/40";
+};
+
 export function ChipStack({ amount, className, size = "md" }: ChipStackProps) {
   if (amount <= 0) return null;
 
-  // Determine standard casino chip color roughly by amount tier
-  const getChipStyle = (amt: number) => {
-    if (amt >= 5000) return "bg-orange-500 border-white text-black ring-orange-700";
-    if (amt >= 1000) return "bg-yellow-500 border-white text-black ring-yellow-600";
-    if (amt >= 500) return "bg-purple-600 border-white text-white ring-purple-900";
-    if (amt >= 100) return "bg-zinc-900 border-white text-white ring-zinc-950";
-    if (amt >= 25) return "bg-blue-600 border-white text-white ring-blue-900";
-    return "bg-red-600 border-white text-white ring-red-900";
-  };
-
-  const styleClass = getChipStyle(amount);
+  const chipColor = getChipColor(amount);
+  const chipSize = size === "sm" ? "w-4 h-4" : size === "lg" ? "w-7 h-7" : "w-5 h-5";
+  const innerSize = size === "sm" ? "w-2 h-2" : size === "lg" ? "w-4 h-4" : "w-3 h-3";
 
   return (
-    <div className={cn("flex flex-col items-center justify-center relative drop-shadow-lg group", className)} title={`$${amount.toLocaleString()}`}>
-      {/* Decorative Chip Icon */}
-      <div className={cn(
-        "relative rounded-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.5)] border-[3px] border-dashed ring-2 ring-black/80 transition-transform group-hover:scale-110",
-        styleClass,
-        "w-8 h-8 md:w-10 md:h-10" // Base decorative size
-      )}>
-        <div className="absolute inset-1 rounded-full bg-black/20" />
+    <div className={cn("flex items-center gap-1.5 group", className)} title={`$${amount.toLocaleString()}`}>
+      {/* Stacked chip effect */}
+      <div className="relative">
+        {amount >= 100 && (
+          <div className={cn(
+            "absolute -top-0.5 left-0 rounded-full bg-gradient-to-br border opacity-60",
+            chipColor, chipSize,
+          )} />
+        )}
+        <div className={cn(
+          "relative rounded-full bg-gradient-to-br border shadow-md flex items-center justify-center",
+          chipColor, chipSize,
+        )}>
+          <div className={cn("rounded-full border border-white/30", innerSize)} />
+        </div>
       </div>
-
-      {/* Detached Value Badge (Method A) */}
-      <div className="absolute -bottom-5 w-auto whitespace-nowrap px-2.5 py-0.5 bg-black/80 border border-white/20 rounded-full text-[11px] font-mono font-bold text-white shadow-lg z-20 group-hover:scale-105 transition-transform origin-top">
+      <span className="text-[11px] font-mono font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
         ${amount.toLocaleString()}
-      </div>
+      </span>
     </div>
   );
 }

@@ -76,7 +76,7 @@ export class GameServerWs {
   start(port: number): Promise<void> {
     const allowedOrigins = this.getAllowedOrigins();
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.wss = new WebSocketServer({
         port,
         verifyClient: allowedOrigins
@@ -96,6 +96,7 @@ export class GameServerWs {
         this.startHeartbeat();
         resolve();
       });
+      this.wss.on('error', (err) => reject(err));
     });
   }
 

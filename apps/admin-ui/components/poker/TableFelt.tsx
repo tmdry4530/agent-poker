@@ -54,7 +54,7 @@ export function TableFelt({ children, className }: TableFeltProps) {
         />
         
         {/* Logo/Center piece placeholder */}
-        <div className="absolute top-[18%] left-1/2 -translate-x-1/2 opacity-[0.03] pointer-events-none flex flex-col items-center select-none">
+        <div className="absolute top-[18%] left-1/2 -translate-x-1/2 opacity-[0.015] pointer-events-none flex flex-col items-center select-none">
             <div className="text-4xl font-black tracking-[0.3em] uppercase">NEXUS</div>
             <div className="text-xs tracking-[0.5em] mt-1">HOLD'EM</div>
         </div>

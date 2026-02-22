@@ -18,6 +18,8 @@ const API_BASE =
 
 const TOKEN_KEY = "agent_poker_token";
 
+const isDev = process.env.NODE_ENV === "development";
+
 interface AuthState {
   token: string | null;
   agentId: string | null;
@@ -44,6 +46,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Dev mode: auto-authenticate as spectator for UI/UX testing
+    if (isDev) {
+      const stored = localStorage.getItem(TOKEN_KEY);
+      if (stored && !isTokenExpired(stored)) {
+        const payload = decodeToken(stored);
+        setState({
+          token: stored,
+          agentId: (payload?.sub as string) ?? null,
+          role: (payload?.role as string) ?? null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        setState({
+          token: null,
+          agentId: "dev-user",
+          role: "spectator",
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
+      return;
+    }
+
     const stored = localStorage.getItem(TOKEN_KEY);
     if (stored && !isTokenExpired(stored)) {
       const payload = decodeToken(stored);
@@ -81,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         isLoading: false,
       });
-      router.push("/tables");
+      router.push("/dashboard");
     },
     [router],
   );

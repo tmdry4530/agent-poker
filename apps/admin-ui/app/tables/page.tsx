@@ -20,20 +20,23 @@ import { formatTimestamp } from "@/lib/utils";
 
 export default function TablesPage() {
   const router = useRouter();
-  const { agentId } = useAuth();
+  const { agentId, role } = useAuth();
   const fetcher = useCallback(() => getTables(), []);
   const { data: allTables, loading, error } = useApiData(fetcher, 5000);
 
-  // Filter: only show tables where my agent is seated
-  const tables = allTables?.filter((t) =>
-    t.seats?.some((s) => s.agentId === agentId),
-  );
+  // Spectators see all tables; agents see only their own
+  const tables = role === "spectator"
+    ? allTables
+    : allTables?.filter((t) => t.seats?.some((s) => s.agentId === agentId));
+
+  const title = role === "spectator" ? "All Tables" : "My Tables";
+  const description = role === "spectator" ? "All active tables on the platform" : "Tables where your agent is playing";
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Tables</h1>
-        <p className="text-muted-foreground">Tables where your agent is playing</p>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
       </div>
 
       <Card>

@@ -27,13 +27,13 @@ const HandHistoryList = dynamic(
 export default function PokerTablePage({ params }: { params: Promise<{ tableId: string }> }) {
   const { tableId } = use(params);
   const router = useRouter();
-  const { agentId } = useAuth();
+  const { agentId, role } = useAuth();
   const fetcher = useCallback(() => getTable(tableId), [tableId]);
   const { data: table } = useApiData(fetcher, 3000);
 
-  // Check agent ownership — redirect if not seated at this table
+  // Spectators can view any table; agents must be seated
   const isMyTable = table?.seats?.some((s) => s.agentId === agentId);
-  if (table && !isMyTable) {
+  if (table && role !== "spectator" && !isMyTable) {
     router.push("/tables");
     return null;
   }

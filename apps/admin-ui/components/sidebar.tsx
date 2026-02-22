@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Table2, LogOut, Spade } from "lucide-react";
+import { LayoutDashboard, Table2, LogOut, Spade } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
@@ -11,7 +11,7 @@ export function Sidebar() {
   const { agentId, role, logout } = useAuth();
 
   const navItems = [
-    { href: "/tables", label: "My Tables", icon: Table2 },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   ];
 
   return (

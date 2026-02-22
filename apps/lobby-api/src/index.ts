@@ -121,15 +121,28 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1])) {
       logger.info('Database connected for table persistence');
     }
 
-    // Initialize game server
+    // Initialize game server (skip if external game-server already holds the port)
     const gameServer = new GameServerWs();
     const WS_PORT = parseInt(process.env['GAME_SERVER_PORT'] ?? '8081', 10);
-    await gameServer.start(WS_PORT);
-    logger.info({ port: WS_PORT }, 'WebSocket server started');
 
-    // Inject DB into game server for cross-process table loading
-    if (db) {
-      gameServer.setDatabase(db);
+    // Probe port availability before starting WS server (avoids unhandled error event crash)
+    const net = await import('net');
+    const portFree = await new Promise<boolean>((resolve) => {
+      const tester = net.createServer()
+        .once('error', (err: any) => { resolve(err.code !== 'EADDRINUSE' ? true : false); })
+        .once('listening', () => { tester.close(() => resolve(true)); })
+        .listen(WS_PORT);
+    });
+
+    if (portFree) {
+      await gameServer.start(WS_PORT);
+      logger.info({ port: WS_PORT }, 'WebSocket server started');
+
+      if (db) {
+        gameServer.setDatabase(db);
+      }
+    } else {
+      logger.info({ port: WS_PORT }, 'WS port already in use — assuming external game-server is running');
     }
 
     // Start lobby API with all dependencies
