@@ -40,6 +40,7 @@ services:
     environment:
       NODE_ENV: production
       NODE_OPTIONS: --dns-result-order=ipv4first
+      ADAPTER_TYPE: postgres
       DATABASE_URL: ${DATABASE_URL}
       PORT: 8080
       SEAT_TOKEN_SECRET: ${SEAT_TOKEN_SECRET}
