@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Redirect admin-only routes to /tables
   useEffect(() => {
     if (!isPublicRoute(pathname) && !isSpectatorRoute(pathname)) {
-      router.replace("/tables");
+      router.replace("/dashboard");
     }
   }, [pathname, router]);
 
