@@ -31,9 +31,7 @@ services:
       - internal
 
   lobby-api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.lobby-api
+    image: ghcr.io/tmdry4530/agent-poker/lobby-api:latest
     container_name: agent-poker-lobby-api
     restart: unless-stopped
     # No host port binding — nginx handles external traffic
@@ -57,9 +55,7 @@ services:
       - internal
 
   game-server:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.game-server
+    image: ghcr.io/tmdry4530/agent-poker/game-server:latest
     container_name: agent-poker-game-server
     restart: unless-stopped
     # No host port binding — nginx handles external traffic
