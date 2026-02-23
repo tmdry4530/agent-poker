@@ -37,6 +37,7 @@ export class GameServerWs {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pongReceived = new WeakSet<WebSocket>();
   private db: Database | null = null;
+  private pendingTableLoads = new Map<string, Promise<TableActor | undefined>>();
 
   constructor() {
     this.disconnectGraceMs = parseInt(process.env['DISCONNECT_GRACE_MS'] ?? '60000', 10);
@@ -332,7 +333,14 @@ export class GameServerWs {
     let table = this.tables.get(tableId);
     if (!table && this.db) {
       try {
-        table = await this.loadTableFromDb(tableId) ?? undefined;
+        // Deduplicate concurrent loads for the same table
+        let loadPromise = this.pendingTableLoads.get(tableId);
+        if (!loadPromise) {
+          loadPromise = this.loadTableFromDb(tableId).then(t => t ?? undefined);
+          this.pendingTableLoads.set(tableId, loadPromise);
+          loadPromise.finally(() => this.pendingTableLoads.delete(tableId));
+        }
+        table = await loadPromise;
       } catch (err) {
         logger.error({ err, tableId }, 'Failed to load table from DB');
       }

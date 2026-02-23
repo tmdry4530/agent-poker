@@ -1,6 +1,20 @@
 import { eq } from 'drizzle-orm';
-import { tables, seats } from './schema.js';
+import { tables, seats, agents } from './schema.js';
 import type { Database } from './client.js';
+
+/**
+ * Ensure an agent record exists (upsert, no-op on conflict).
+ * Used by bot-fill to satisfy the seats.agent_id FK before persisting bot seats.
+ */
+export async function ensureAgent(
+  db: Database,
+  data: { id: string; displayName: string },
+): Promise<void> {
+  await db
+    .insert(agents)
+    .values({ id: data.id, displayName: data.displayName })
+    .onConflictDoNothing();
+}
 
 /**
  * Persist a table record (upsert).

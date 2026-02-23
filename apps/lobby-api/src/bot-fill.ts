@@ -1,5 +1,5 @@
 import { signSeatToken } from '@agent-poker/game-server';
-import { persistSeat } from '@agent-poker/database';
+import { persistSeat, ensureAgent } from '@agent-poker/database';
 import { BOT_CONFIG } from './bot-config.js';
 import { BotPlayer } from './bot-player.js';
 import { logger } from './logger.js';
@@ -102,9 +102,10 @@ export class BotFillManager {
         const seatToken = signSeatToken({ agentId: botId, tableId });
         const seat = table.addSeat(botId, seatToken, BOT_CONFIG.defaultBuyIn);
 
-        // Persist to DB (best-effort)
+        // Persist to DB (best-effort) — ensureAgent first to satisfy FK
         if (this.db) {
           try {
+            await ensureAgent(this.db, { id: botId, displayName: botId });
             await persistSeat(this.db, {
               tableId,
               seatNo: seat.seatIndex,
@@ -112,8 +113,8 @@ export class BotFillManager {
               seatToken,
               buyInAmount: BOT_CONFIG.defaultBuyIn,
             });
-          } catch {
-            // non-critical
+          } catch (err) {
+            logger.error({ botId, tableId, err }, 'Failed to persist bot seat to DB');
           }
         }
 
