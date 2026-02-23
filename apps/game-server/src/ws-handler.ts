@@ -38,6 +38,7 @@ export class GameServerWs {
   private pongReceived = new WeakSet<WebSocket>();
   private db: Database | null = null;
   private pendingTableLoads = new Map<string, Promise<TableActor | undefined>>();
+  private autoStartTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor() {
     this.disconnectGraceMs = parseInt(process.env['DISCONNECT_GRACE_MS'] ?? '60000', 10);
@@ -467,6 +468,39 @@ export class GameServerWs {
         latestEventId: eventBuffer?.getLatestEventId() ?? 0,
       },
     });
+
+    // Auto-start hand: reset timer on each HELLO, start 2s after last player connects
+    this.scheduleAutoStart(tableId);
+  }
+
+  /**
+   * Schedule auto-start of the first hand for a table.
+   * Resets timer on each call so the hand starts 2s after the last player connects.
+   */
+  private scheduleAutoStart(tableId: string): void {
+    const existing = this.autoStartTimers.get(tableId);
+    if (existing) clearTimeout(existing);
+
+    this.autoStartTimers.set(tableId, setTimeout(() => {
+      this.autoStartTimers.delete(tableId);
+      this.tryStartHand(tableId);
+    }, 2000));
+  }
+
+  /**
+   * Try to start a hand on the table. Used for auto-start and hand continuation.
+   */
+  private tryStartHand(tableId: string): void {
+    const table = this.tables.get(tableId);
+    if (!table || !table.canStartHand() || table.getState()) return;
+
+    try {
+      const { state } = table.startHand();
+      this.broadcastState(tableId, state);
+      logger.info({ tableId, handId: state.handId }, 'Auto-started hand');
+    } catch (err) {
+      logger.error({ tableId, err }, 'Failed to auto-start hand');
+    }
   }
 
   private async handleAction(ws: WebSocket, msg: WsEnvelope): Promise<void> {
@@ -540,7 +574,7 @@ export class GameServerWs {
       // Broadcast state to all connected clients at this table
       this.broadcastState(client.tableId, state);
 
-      // If hand complete, notify
+      // If hand complete, notify and schedule next hand
       if (state.isHandComplete) {
         this.broadcastToTable(client.tableId, {
           protocolVersion: PROTOCOL_VERSION,
@@ -551,6 +585,10 @@ export class GameServerWs {
             result: state.resultSummary,
           },
         });
+
+        // Auto-start next hand after a short delay
+        const tid = client.tableId;
+        setTimeout(() => this.tryStartHand(tid), 3000);
       }
     } catch (err) {
       if (err instanceof PokerError) {
