@@ -91,13 +91,14 @@ export class BotFillManager {
 
     logger.info({ tableId, emptySlots, occupiedSeats, maxSeats }, 'Filling table with bots');
 
-    const bots: BotPlayer[] = [];
+    // Phase 1: Create all seats and persist to DB BEFORE connecting any bot.
+    // This ensures the game-server can load all seats from DB on first HELLO.
+    const botSeats: Array<{ botId: string; seatToken: string; seatIndex: number }> = [];
 
     for (let i = 0; i < emptySlots; i++) {
       const botId = `bot-${++botCounter}`;
 
       try {
-        // Create seat token and add to table
         const seatToken = signSeatToken({ agentId: botId, tableId });
         const seat = table.addSeat(botId, seatToken, BOT_CONFIG.defaultBuyIn);
 
@@ -116,18 +117,25 @@ export class BotFillManager {
           }
         }
 
-        // Create bot player and connect via WS
-        const bot = new BotPlayer(botId, tableId, seatToken);
-        try {
-          await bot.connect();
-          bots.push(bot);
-          logger.info({ botId, tableId, seatIndex: seat.seatIndex }, 'Bot seated and connected');
-        } catch (err) {
-          logger.error({ botId, tableId, err }, 'Bot failed to connect via WS');
-          bot.destroy();
-        }
+        botSeats.push({ botId, seatToken, seatIndex: seat.seatIndex });
+        logger.info({ botId, tableId, seatIndex: seat.seatIndex }, 'Bot seat created');
       } catch (err) {
         logger.error({ botId, tableId, err }, 'Failed to seat bot');
+      }
+    }
+
+    // Phase 2: Connect all bots via WS (game-server loads table+seats from DB)
+    const bots: BotPlayer[] = [];
+
+    for (const { botId, seatToken, seatIndex } of botSeats) {
+      const bot = new BotPlayer(botId, tableId, seatToken);
+      try {
+        await bot.connect();
+        bots.push(bot);
+        logger.info({ botId, tableId, seatIndex }, 'Bot connected');
+      } catch (err) {
+        logger.error({ botId, tableId, err }, 'Bot failed to connect via WS');
+        bot.destroy();
       }
     }
 

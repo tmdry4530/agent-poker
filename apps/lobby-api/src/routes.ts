@@ -112,6 +112,34 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
       }
     }
 
+    // Persist table to DB for cross-process sharing (game-server loads via DB fallback)
+    if (deps.db) {
+      try {
+        await persistTable(deps.db, {
+          id: tableId,
+          variant,
+          maxSeats,
+          config: config as unknown as Record<string, unknown>,
+        });
+        // Persist auto-seated agents
+        for (const entry of entries) {
+          const seats = table.getSeats();
+          const seat = seats.find((s: any) => s.agentId === entry.agentId);
+          if (seat) {
+            await persistSeat(deps.db, {
+              tableId,
+              seatNo: seat.seatIndex,
+              agentId: entry.agentId,
+              seatToken: seat.seatToken,
+              buyInAmount: blindConfig.bigBlind * 100,
+            });
+          }
+        }
+      } catch (err) {
+        logger.error({ err, tableId }, 'Failed to persist matched table to DB');
+      }
+    }
+
     logger.info(
       { tableId, players: entries.map((e) => e.agentId), blindLevel: entries[0]!.blindLevel, variant },
       'Auto-created table for matched players',

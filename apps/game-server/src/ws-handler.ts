@@ -356,8 +356,22 @@ export class GameServerWs {
     }
 
     // Verify seat exists on the table
-    const seats = table.getSeats();
-    const seat = seats.find((s) => s.agentId === payload.agentId && s.seatToken === payload.seatToken);
+    let seats = table.getSeats();
+    let seat = seats.find((s) => s.agentId === payload.agentId && s.seatToken === payload.seatToken);
+
+    // Seat not found in memory — try reloading from DB (another process may have added it)
+    if (!seat && this.db) {
+      try {
+        const reloaded = await this.reloadSeatsFromDb(table);
+        if (reloaded) {
+          seats = table.getSeats();
+          seat = seats.find((s) => s.agentId === payload.agentId && s.seatToken === payload.seatToken);
+        }
+      } catch (err) {
+        logger.error({ err, tableId }, 'Failed to reload seats from DB');
+      }
+    }
+
     if (!seat) {
       this.sendError(ws, 'AUTH_FAILED', 'Invalid seatToken for this agent');
       return;
@@ -605,6 +619,37 @@ export class GameServerWs {
     this.registerTable(table);
     logger.info({ tableId, seats: data.seats.length }, 'Table loaded from DB');
     return table;
+  }
+
+  /**
+   * Reload seats from DB for an existing in-memory table.
+   * Adds any new seats that were added by another process (e.g., bot-fill on lobby-api).
+   */
+  private async reloadSeatsFromDb(table: TableActor): Promise<boolean> {
+    if (!this.db) return false;
+
+    const data = await loadTableWithSeats(this.db, table.tableId);
+    if (!data) return false;
+
+    const existingSeats = table.getSeats();
+    const existingAgentIds = new Set(existingSeats.map((s) => s.agentId));
+    let added = 0;
+
+    for (const dbSeat of data.seats) {
+      if (dbSeat.status === 'seated' && dbSeat.seatToken && !existingAgentIds.has(dbSeat.agentId)) {
+        try {
+          table.addSeat(dbSeat.agentId, dbSeat.seatToken, dbSeat.buyInAmount);
+          added++;
+        } catch {
+          // seat index conflict or table full — skip
+        }
+      }
+    }
+
+    if (added > 0) {
+      logger.info({ tableId: table.tableId, added }, 'Reloaded new seats from DB');
+    }
+    return added > 0;
   }
 
   broadcastState(tableId: string, state: any): void {

@@ -50,7 +50,7 @@ services:
       BOT_FILL_TIMEOUT_MS: ${BOT_FILL_TIMEOUT_MS:-180000}
       BOT_FILL_MODEL: ${BOT_FILL_MODEL:-claude-haiku-4-5-20251001}
       BOT_DEFAULT_BUY_IN: ${BOT_DEFAULT_BUY_IN:-1000}
-      BOT_WS_URL: ws://localhost:8081
+      BOT_WS_URL: ws://game-server:8081
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/healthz',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
