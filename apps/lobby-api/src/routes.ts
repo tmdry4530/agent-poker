@@ -100,6 +100,18 @@ export function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
     server.registerTable(table);
 
+    // Auto-seat matched agents
+    const { signSeatToken } = await import('@agent-poker/game-server');
+    for (const entry of entries) {
+      try {
+        const seatToken = signSeatToken({ agentId: entry.agentId, tableId });
+        table.addSeat(entry.agentId, seatToken, blindConfig.bigBlind * 100);
+        logger.info({ agentId: entry.agentId, tableId }, 'Auto-seated matched agent');
+      } catch (err) {
+        logger.error({ agentId: entry.agentId, tableId, err }, 'Failed to auto-seat agent');
+      }
+    }
+
     logger.info(
       { tableId, players: entries.map((e) => e.agentId), blindLevel: entries[0]!.blindLevel, variant },
       'Auto-created table for matched players',
